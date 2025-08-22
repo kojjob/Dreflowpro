@@ -6,5 +6,5 @@ from .connectors import router as connectors_router
 router = APIRouter(prefix="/api/v1")
 
 # Include all sub-routers
-router.include_router(auth_router, tags=["authentication"])
+router.include_router(auth_router, prefix="/auth", tags=["authentication"])
 router.include_router(connectors_router, tags=["connectors"])

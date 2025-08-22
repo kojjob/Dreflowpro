@@ -46,3 +46,7 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Close database connection."""
     await engine.dispose()
+
+
+# Alias for compatibility
+get_db = get_session

@@ -48,6 +48,15 @@ class Settings(BaseSettings):
         env="ALLOWED_EXTENSIONS"
     )
     
+    # Redis Settings
+    REDIS_URL: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=0, env="REDIS_DB")
+    
+    # Cache Settings
+    CACHE_TTL: int = Field(default=3600, env="CACHE_TTL")  # 1 hour default
+    SESSION_TTL: int = Field(default=86400, env="SESSION_TTL")  # 24 hours default
+    
     # External Services
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     

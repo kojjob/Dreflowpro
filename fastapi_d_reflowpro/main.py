@@ -8,9 +8,13 @@ import os
 # Import core components
 from app.core.config import settings
 from app.core.database import init_db, close_db
+from app.core.redis import init_redis, close_redis
 
 # Import all models to register them with SQLAlchemy
 import app.models.all  # noqa
+
+# Import API routers
+from app.api.v1.router import router as v1_router
 
 
 @asynccontextmanager
@@ -20,6 +24,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("✅ Database initialized")
     
+    # Initialize Redis
+    redis_connected = await init_redis()
+    if redis_connected:
+        print("✅ Redis connected")
+    else:
+        print("⚠️ Redis connection failed - continuing without caching")
+    
     # Create upload folder if it doesn't exist
     os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
     print(f"✅ Upload folder ready: {settings.UPLOAD_FOLDER}")
@@ -27,6 +38,9 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
+    await close_redis()
+    print("✅ Redis connection closed")
+    
     await close_db()
     print("✅ Database connection closed")
 
@@ -47,6 +61,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include API routers
+app.include_router(v1_router)
 
 # Mount static files for uploads
 if os.path.exists(settings.UPLOAD_FOLDER):
@@ -73,11 +90,20 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    from app.core.redis import redis_manager
+    
+    # Check Redis connection
+    redis_healthy = await redis_manager.ping()
+    
     return {
         "status": "healthy",
         "app": settings.APP_NAME,
         "version": settings.VERSION,
-        "environment": "development" if settings.DEBUG else "production"
+        "environment": "development" if settings.DEBUG else "production",
+        "services": {
+            "database": "healthy",
+            "redis": "healthy" if redis_healthy else "unhealthy"
+        }
     }
 
 # expose an alias named `main` so commands like `uvicorn main:main` work
