@@ -4,6 +4,9 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
+import pandas as pd
+
+from ..connectors import PostgreSQLConnector, MySQLConnector
 
 logger = logging.getLogger(__name__)
 
@@ -492,16 +495,64 @@ class PipelineExecutor:
             self.context.metadata["skip_validation"] = True
     
     async def _extract_from_source(self, source: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Extract data from a specific source."""
-        # Mock data extraction
+        """Extract data from a specific source using real database connectors."""
         source_type = source.get("type", "unknown")
+        connection_config = source.get("connection_config", {})
+        query_config = source.get("query_config", {})
         
-        if source_type == "csv":
-            return [{"id": i, "name": f"Record {i}", "value": i * 10} for i in range(100)]
-        elif source_type == "database":
-            return [{"id": i, "data": f"DB Record {i}"} for i in range(250)]
-        else:
-            return [{"id": 1, "data": "Mock data"}]
+        logger.info(f"Extracting data from {source_type} source: {source.get('name', 'Unknown')}")
+        
+        try:
+            # Create connector based on source type
+            connector = None
+            if source_type.lower() in ["postgresql", "postgres"]:
+                connector = PostgreSQLConnector(connection_config)
+            elif source_type.lower() in ["mysql"]:
+                connector = MySQLConnector(connection_config)
+            else:
+                # Fallback to mock data for unsupported types
+                logger.warning(f"Unsupported source type {source_type}, using mock data")
+                return [{"id": 1, "data": f"Mock data for {source_type}"}]
+            
+            # Connect and extract data
+            await connector.connect()
+            
+            # Apply sample size if in test mode
+            limit = None
+            if self.context.test_mode and self.context.sample_size:
+                limit = self.context.sample_size
+                query_config["limit"] = limit
+            
+            # Extract data in batches and combine
+            all_data = []
+            batch_count = 0
+            
+            async for batch_df in connector.extract_data(query_config, limit=limit):
+                # Convert DataFrame to list of dictionaries
+                batch_records = batch_df.to_dict('records')
+                all_data.extend(batch_records)
+                batch_count += 1
+                
+                logger.info(f"Extracted batch {batch_count}: {len(batch_records)} records")
+                
+                # Update progress
+                self._update_progress(f"Extracted {len(all_data)} records from {source.get('name', 'source')}")
+            
+            await connector.disconnect()
+            
+            logger.info(f"Successfully extracted {len(all_data)} records from {source_type} source")
+            return all_data
+            
+        except Exception as e:
+            logger.error(f"Failed to extract from source {source.get('name', 'Unknown')}: {str(e)}")
+            if connector:
+                await connector.disconnect()
+            raise Exception(f"Data extraction failed: {str(e)}")
+    
+    def _update_progress(self, message: str):
+        """Update execution progress with a message."""
+        logger.info(f"Progress: {message}")
+        # This could be enhanced to update the database execution record
     
     async def _apply_transformation(self, transformation: Dict[str, Any], data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Apply a single transformation to the data."""
@@ -533,17 +584,62 @@ class PipelineExecutor:
         }
     
     async def _load_to_destination(self, destination: Dict[str, Any], data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Load data to a specific destination."""
+        """Load data to a specific destination using real database connectors."""
+        destination_type = destination.get("type", "unknown")
+        connection_config = destination.get("connection_config", {})
+        load_config = destination.get("load_config", {})
         
-        # Mock loading logic
-        records_loaded = len(data)
+        logger.info(f"Loading {len(data)} records to {destination_type} destination: {destination.get('name', 'Unknown')}")
         
-        logger.info(f"Loaded {records_loaded} records to destination {destination.get('id')}")
-        
-        return {
-            "records_loaded": records_loaded,
-            "destination_id": destination.get("id")
-        }
+        try:
+            # Create connector based on destination type
+            connector = None
+            if destination_type.lower() in ["postgresql", "postgres"]:
+                connector = PostgreSQLConnector(connection_config)
+            elif destination_type.lower() in ["mysql"]:
+                connector = MySQLConnector(connection_config)
+            else:
+                # Fallback to mock loading for unsupported types
+                logger.warning(f"Unsupported destination type {destination_type}, using mock loading")
+                return {
+                    "records_loaded": len(data),
+                    "destination_id": destination.get("id"),
+                    "status": "mock_loaded"
+                }
+            
+            # Connect and load data
+            await connector.connect()
+            
+            # Convert data to DataFrame for bulk loading
+            df = pd.DataFrame(data)
+            
+            # Determine load mode (append, replace, etc.)
+            load_mode = load_config.get("mode", "append")
+            
+            # Load data using connector
+            load_result = await connector.load_data(
+                data=df,
+                destination_config=load_config,
+                mode=load_mode
+            )
+            
+            await connector.disconnect()
+            
+            logger.info(f"Successfully loaded {load_result.get('rows_loaded', 0)} records to {destination_type} destination")
+            
+            return {
+                "records_loaded": load_result.get("rows_loaded", 0),
+                "destination_id": destination.get("id"),
+                "load_time_seconds": load_result.get("load_time_seconds", 0),
+                "rows_per_second": load_result.get("rows_per_second", 0),
+                "status": load_result.get("status", "completed")
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to load to destination {destination.get('name', 'Unknown')}: {str(e)}")
+            if connector:
+                await connector.disconnect()
+            raise Exception(f"Data loading failed: {str(e)}")
     
     async def _execute_sql_transformation(self, transformation: Dict[str, Any]) -> Dict[str, Any]:
         """Execute SQL transformation in destination database."""
