@@ -12,6 +12,19 @@ wheels = [
 ]
 
 [[package]]
+name = "aioredis"
+version = "2.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-timeout" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/cf/9eb144a0b05809ffc5d29045c4b51039000ea275bc1268d0351c9e7dfc06/aioredis-2.0.1.tar.gz", hash = "sha256:eaa51aaf993f2d71f54b70527c440437ba65340588afeb786cd87c55c89cd98e", size = 111047, upload-time = "2021-12-27T20:28:17.557Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/a9/0da089c3ae7a31cbcd2dcf0214f6f571e1295d292b6139e2bac68ec081d0/aioredis-2.0.1-py3-none-any.whl", hash = "sha256:9ac0d0b3b485d293b8ca1987e6de8658d7dafcca1cddfcd1d506cae8cdebfdd6", size = 71243, upload-time = "2021-12-27T20:28:16.36Z" },
+]
+
+[[package]]
 name = "aiosqlite"
 version = "0.21.0"
 source = { registry = "https://pypi.org/simple" }
@@ -72,6 +85,15 @@ wheels = [
 ]
 
 [[package]]
+name = "async-timeout"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/ae/136395dfbfe00dfc94da3f3e136d0b13f394cba8f4841120e34226265780/async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3", size = 9274, upload-time = "2024-11-06T16:41:39.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/ba/e2081de779ca30d473f21f5b30e0e737c438205440784c7dfc81efc2b029/async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c", size = 6233, upload-time = "2024-11-06T16:41:37.9Z" },
+]
+
+[[package]]
 name = "asyncpg"
 version = "0.30.0"
 source = { registry = "https://pypi.org/simple" }
@@ -85,6 +107,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ef/5f/0bf65511d4eeac3a1f41c54034a492515a707c6edbc642174ae79034d3ba/asyncpg-0.30.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:04ff0785ae7eed6cc138e73fc67b8e51d54ee7a3ce9b63666ce55a0bf095f7ba", size = 3662720, upload-time = "2024-10-20T00:30:04.501Z" },
     { url = "https://files.pythonhosted.org/packages/e7/31/1513d5a6412b98052c3ed9158d783b1e09d0910f51fbe0e05f56cc370bc4/asyncpg-0.30.0-cp313-cp313-win32.whl", hash = "sha256:ae374585f51c2b444510cdf3595b97ece4f233fde739aa14b50e0d64e8a7a590", size = 560404, upload-time = "2024-10-20T00:30:06.537Z" },
     { url = "https://files.pythonhosted.org/packages/c8/a4/cec76b3389c4c5ff66301cd100fe88c318563ec8a520e0b2e792b5b84972/asyncpg-0.30.0-cp313-cp313-win_amd64.whl", hash = "sha256:f59b430b8e27557c3fb9869222559f7417ced18688375825f8f12302c34e915e", size = 621623, upload-time = "2024-10-20T00:30:09.024Z" },
+]
+
+[[package]]
+name = "authlib"
+version = "1.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/a1/d8d1c6f8bc922c0b87ae0d933a8ed57be1bef6970894ed79c2852a153cd3/authlib-1.6.1.tar.gz", hash = "sha256:4dffdbb1460ba6ec8c17981a4c67af7d8af131231b5a36a88a1e8c80c111cdfd", size = 159988, upload-time = "2025-07-20T07:38:42.834Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f9/58/cc6a08053f822f98f334d38a27687b69c6655fb05cd74a7a5e70a2aeed95/authlib-1.6.1-py2.py3-none-any.whl", hash = "sha256:e9d2031c34c6309373ab845afc24168fe9e93dc52d252631f52642f21f5ed06e", size = 239299, upload-time = "2025-07-20T07:38:39.259Z" },
 ]
 
 [[package]]
@@ -368,12 +402,15 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },
+    { name = "aioredis" },
     { name = "aiosqlite" },
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "authlib" },
     { name = "celery" },
     { name = "email-validator" },
     { name = "fastapi" },
+    { name = "fastapi-cache2" },
     { name = "greenlet" },
     { name = "httpx" },
     { name = "numpy" },
@@ -405,13 +442,16 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
+    { name = "aioredis", specifier = ">=2.0.0" },
     { name = "aiosqlite", specifier = ">=0.20.0" },
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "authlib", specifier = ">=1.3.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "celery", specifier = ">=5.3.0" },
     { name = "email-validator", specifier = ">=2.1.0" },
     { name = "fastapi", specifier = ">=0.116.1" },
+    { name = "fastapi-cache2", specifier = ">=0.2.0" },
     { name = "greenlet", specifier = ">=3.0.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.0" },
@@ -491,6 +531,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/78/d7/6c8b3bfe33eeffa208183ec037fee0cce9f7f024089ab1c5d12ef04bd27c/fastapi-0.116.1.tar.gz", hash = "sha256:ed52cbf946abfd70c5a0dccb24673f0670deeb517a88b3544d03c2a6bf283143", size = 296485, upload-time = "2025-07-11T16:22:32.057Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/47/d63c60f59a59467fda0f93f46335c9d18526d7071f025cb5b89d5353ea42/fastapi-0.116.1-py3-none-any.whl", hash = "sha256:c46ac7c312df840f0c9e220f7964bada936781bc4e2e6eb71f1c4d7553786565", size = 95631, upload-time = "2025-07-11T16:22:30.485Z" },
+]
+
+[[package]]
+name = "fastapi-cache2"
+version = "0.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pendulum" },
+    { name = "typing-extensions" },
+    { name = "uvicorn" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/6f/7c2078bf097634276a266fe225d9d6a1f882fe505a662bd1835fb2cf6891/fastapi_cache2-0.2.2.tar.gz", hash = "sha256:71bf4450117dc24224ec120be489dbe09e331143c9f74e75eb6f576b78926026", size = 17950, upload-time = "2024-07-24T15:47:21.102Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/b3/ce7c5d9f5e75257a3039ee1e38feb77bee29da3a1792c57d6ea1acb55d17/fastapi_cache2-0.2.2-py3-none-any.whl", hash = "sha256:e1fae86d8eaaa6c8501dfe08407f71d69e87cc6748042d59d51994000532846c", size = 25411, upload-time = "2024-07-24T15:47:19.065Z" },
 ]
 
 [[package]]
@@ -792,6 +847,29 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ca/bc/f35b8446f4531a7cb215605d100cd88b7ac6f44ab3fc94870c120ab3adbf/pathspec-0.12.1.tar.gz", hash = "sha256:a482d51503a1ab33b1c67a6c3813a26953dbdc71c31dacaef9a838c4e29f5712", size = 51043, upload-time = "2023-12-10T22:30:45Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl", hash = "sha256:a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08", size = 31191, upload-time = "2023-12-10T22:30:43.14Z" },
+]
+
+[[package]]
+name = "pendulum"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "tzdata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/23/7c/009c12b86c7cc6c403aec80f8a4308598dfc5995e5c523a5491faaa3952e/pendulum-3.1.0.tar.gz", hash = "sha256:66f96303560f41d097bee7d2dc98ffca716fbb3a832c4b3062034c2d45865015", size = 85930, upload-time = "2025-04-19T14:30:01.675Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/1f/af928ba4aa403dac9569f787adcf024005e7654433d71f7a84e608716837/pendulum-3.1.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:28658b0baf4b30eb31d096a375983cfed033e60c0a7bbe94fa23f06cd779b50b", size = 336209, upload-time = "2025-04-19T14:01:42.775Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/16/b010643007ba964c397da7fa622924423883c1bbff1a53f9d1022cd7f024/pendulum-3.1.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:b114dcb99ce511cb8f5495c7b6f0056b2c3dba444ef1ea6e48030d7371bd531a", size = 323132, upload-time = "2025-04-19T14:01:44.577Z" },
+    { url = "https://files.pythonhosted.org/packages/64/19/c3c47aeecb5d9bceb0e89faafd800d39809b696c5b7bba8ec8370ad5052c/pendulum-3.1.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2404a6a54c80252ea393291f0b7f35525a61abae3d795407f34e118a8f133a18", size = 341509, upload-time = "2025-04-19T14:01:46.084Z" },
+    { url = "https://files.pythonhosted.org/packages/38/cf/c06921ff6b860ff7e62e70b8e5d4dc70e36f5abb66d168bd64d51760bc4e/pendulum-3.1.0-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:d06999790d9ee9962a1627e469f98568bf7ad1085553fa3c30ed08b3944a14d7", size = 378674, upload-time = "2025-04-19T14:01:47.727Z" },
+    { url = "https://files.pythonhosted.org/packages/62/0b/a43953b9eba11e82612b033ac5133f716f1b76b6108a65da6f408b3cc016/pendulum-3.1.0-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:94751c52f6b7c306734d1044c2c6067a474237e1e5afa2f665d1fbcbbbcf24b3", size = 436133, upload-time = "2025-04-19T14:01:49.126Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/a0/ec3d70b3b96e23ae1d039f132af35e17704c22a8250d1887aaefea4d78a6/pendulum-3.1.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5553ac27be05e997ec26d7f004cf72788f4ce11fe60bb80dda604a64055b29d0", size = 351232, upload-time = "2025-04-19T14:01:50.575Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/97/aba23f1716b82f6951ba2b1c9178a2d107d1e66c102762a9bf19988547ea/pendulum-3.1.0-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:f8dee234ca6142bf0514368d01a72945a44685aaa2fc4c14c98d09da9437b620", size = 521563, upload-time = "2025-04-19T14:01:51.9Z" },
+    { url = "https://files.pythonhosted.org/packages/01/33/2c0d5216cc53d16db0c4b3d510f141ee0a540937f8675948541190fbd48b/pendulum-3.1.0-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:7378084fe54faab4ee481897a00b710876f2e901ded6221671e827a253e643f2", size = 523221, upload-time = "2025-04-19T14:01:53.275Z" },
+    { url = "https://files.pythonhosted.org/packages/51/89/8de955c339c31aeae77fd86d3225509b998c81875e9dba28cb88b8cbf4b3/pendulum-3.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:8539db7ae2c8da430ac2515079e288948c8ebf7eb1edd3e8281b5cdf433040d6", size = 260501, upload-time = "2025-04-19T14:01:54.749Z" },
+    { url = "https://files.pythonhosted.org/packages/15/c3/226a3837363e94f8722461848feec18bfdd7d5172564d53aa3c3397ff01e/pendulum-3.1.0-cp313-cp313-win_arm64.whl", hash = "sha256:1ce26a608e1f7387cd393fba2a129507c4900958d4f47b90757ec17656856571", size = 253087, upload-time = "2025-04-19T14:01:55.998Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/23/e98758924d1b3aac11a626268eabf7f3cf177e7837c28d47bf84c64532d0/pendulum-3.1.0-py3-none-any.whl", hash = "sha256:f9178c2a8e291758ade1e8dd6371b1d26d08371b4c7730a6e9a3ef8b16ebae0f", size = 111799, upload-time = "2025-04-19T14:02:34.739Z" },
 ]
 
 [[package]]

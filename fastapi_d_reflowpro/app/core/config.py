@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ALGORITHM: str = "HS256"
     
-    # Database (using SQLite for development)
+    # Database (using PostgreSQL)
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./dreflowpro.db",
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/dreflowpro",
         env="DATABASE_URL"
     )
     
@@ -46,6 +46,19 @@ class Settings(BaseSettings):
     
     # External Services
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+    
+    # OAuth Settings
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_SECRET")
+    
+    GITHUB_CLIENT_ID: Optional[str] = Field(default=None, env="GITHUB_CLIENT_ID")
+    GITHUB_CLIENT_SECRET: Optional[str] = Field(default=None, env="GITHUB_CLIENT_SECRET")
+    
+    MICROSOFT_CLIENT_ID: Optional[str] = Field(default=None, env="MICROSOFT_CLIENT_ID")
+    MICROSOFT_CLIENT_SECRET: Optional[str] = Field(default=None, env="MICROSOFT_CLIENT_SECRET")
+    
+    # OAuth Redirect URLs
+    OAUTH_REDIRECT_URL: str = Field(default="http://localhost:8000/auth/oauth/{provider}/callback", env="OAUTH_REDIRECT_URL")
     
     # CORS
     CORS_ORIGINS: list[str] = Field(
