@@ -33,9 +33,9 @@ POSTGRES_CONFIG = {
 MYSQL_CONFIG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
     "port": int(os.getenv("MYSQL_PORT", "3306")),
-    "database": os.getenv("MYSQL_DB", "test_db"),
+    "database": os.getenv("MYSQL_DB", "dreflowpro_mysql"),
     "username": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", "password"),
+    "password": os.getenv("MYSQL_PASSWORD", ""),
     "min_connections": 1,
     "max_connections": 5
 }
@@ -356,8 +356,8 @@ if __name__ == "__main__":
             await test_suite.test_postgresql_connector_real_operations()
             print("\n" + "=" * 60)
             
-            # await test_suite.test_mysql_connector_real_operations()
-            # print("\n" + "=" * 60)
+            await test_suite.test_mysql_connector_real_operations()
+            print("\n" + "=" * 60)
             
             await test_suite.test_end_to_end_elt_pipeline()
             print("\n" + "=" * 60)

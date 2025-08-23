@@ -7,6 +7,7 @@ from enum import Enum
 import pandas as pd
 
 from ..connectors import PostgreSQLConnector, MySQLConnector
+from ..transformations import DataTransformations
 
 logger = logging.getLogger(__name__)
 
@@ -555,32 +556,81 @@ class PipelineExecutor:
         # This could be enhanced to update the database execution record
     
     async def _apply_transformation(self, transformation: Dict[str, Any], data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Apply a single transformation to the data."""
+        """Apply a single transformation to the data using real transformation operations."""
         
         transform_type = transformation.get("type", "unknown")
-        ai_insights = []
+        transform_config = transformation.get("config", {})
         
-        # Mock transformation logic
-        if transform_type == "data_cleaning":
-            # Simulate data cleaning
+        # Apply real transformations
+        if transform_type == "join":
+            # JOIN transformation requires right dataset
+            right_data = transform_config.get("right_data", [])
+            if not right_data:
+                logger.warning("JOIN transformation missing right_data")
+                return {"data": data, "ai_insights": []}
+            
+            result = DataTransformations.join_data(data, right_data, transform_config)
+            
+        elif transform_type == "deduplicate":
+            result = DataTransformations.deduplicate_data(data, transform_config)
+            
+        elif transform_type == "validate":
+            result = DataTransformations.validate_data(data, transform_config)
+            
+        elif transform_type == "aggregate":
+            result = DataTransformations.aggregate_data(data, transform_config)
+            
+        elif transform_type == "data_cleaning":
+            # Simulate data cleaning (can be expanded with real cleaning logic)
             cleaned_data = data.copy()
-            # Add cleaning logic here
+            result = {
+                "status": "success",
+                "data": cleaned_data,
+                "original_count": len(data),
+                "result_count": len(cleaned_data)
+            }
             
         elif transform_type == "ai_enrichment":
-            # Simulate AI-powered enrichment
-            cleaned_data = data.copy()
-            ai_insights.append({
-                "type": "enrichment",
-                "description": "Added 15 derived fields using AI analysis",
-                "confidence": 0.87
-            })
+            # Simulate AI-powered enrichment (can be expanded with real AI integration)
+            enriched_data = data.copy()
+            result = {
+                "status": "success", 
+                "data": enriched_data,
+                "original_count": len(data),
+                "result_count": len(enriched_data),
+                "ai_insights": [{
+                    "type": "enrichment",
+                    "description": "Added 15 derived fields using AI analysis",
+                    "confidence": 0.87
+                }]
+            }
             
         else:
-            cleaned_data = data.copy()
+            logger.warning(f"Unknown transformation type: {transform_type}")
+            result = {
+                "status": "success",
+                "data": data.copy(),
+                "original_count": len(data),
+                "result_count": len(data)
+            }
+        
+        # Extract AI insights from result
+        ai_insights = result.get("ai_insights", [])
+        
+        # Log transformation results
+        if result.get("status") == "success":
+            original_count = result.get("original_count", len(data))
+            result_count = result.get("result_count", len(data))
+            execution_time = result.get("execution_time_seconds", 0)
+            
+            logger.info(f"Transformation '{transform_type}' completed: {original_count} → {result_count} records in {execution_time:.2f}s")
+        else:
+            logger.error(f"Transformation '{transform_type}' failed: {result.get('error', 'Unknown error')}")
         
         return {
-            "data": cleaned_data,
-            "ai_insights": ai_insights
+            "data": result.get("data", data),
+            "ai_insights": ai_insights,
+            "transformation_result": result
         }
     
     async def _load_to_destination(self, destination: Dict[str, Any], data: List[Dict[str, Any]]) -> Dict[str, Any]:
