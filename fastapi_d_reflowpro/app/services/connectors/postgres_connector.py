@@ -192,32 +192,36 @@ class PostgreSQLConnector(BaseConnector):
             logger.info(f"Executing PostgreSQL extraction query: {query[:100]}...")
             
             async with self._connection_pool.acquire() as conn:
-                # Use server-side cursor for memory efficiency
+                # Use AsyncPG's cursor for streaming results
                 async with conn.transaction():
                     rows_processed = 0
+                    batch_records = []
                     
-                    async for record in conn.cursor(query):
-                        batch_records = []
+                    # Create cursor once and iterate through all records
+                    cursor = conn.cursor(query)
+                    async for record in cursor:
+                        # Add record to current batch
                         batch_records.append(dict(record))
                         
-                        # Collect batch
-                        for _ in range(batch_size - 1):
-                            try:
-                                next_record = await record.__anext__()
-                                batch_records.append(dict(next_record))
-                            except StopAsyncIteration:
-                                break
-                        
-                        # Convert to DataFrame
-                        if batch_records:
+                        # When batch is full, yield it
+                        if len(batch_records) >= batch_size:
                             df = pd.DataFrame(batch_records)
                             rows_processed += len(df)
                             
                             logger.info(f"Extracted batch: {len(df)} rows (total: {rows_processed})")
                             yield df
-                        
-                        if limit and rows_processed >= limit:
-                            break
+                            
+                            # Reset batch and check limits
+                            batch_records = []
+                            if limit and rows_processed >= limit:
+                                break
+                    
+                    # Yield remaining records if any
+                    if batch_records:
+                        df = pd.DataFrame(batch_records)
+                        rows_processed += len(df)
+                        logger.info(f"Extracted final batch: {len(df)} rows (total: {rows_processed})")
+                        yield df
                             
         except Exception as e:
             logger.error(f"Error extracting data from PostgreSQL: {str(e)}")
