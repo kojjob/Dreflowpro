@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { API_CONFIG } from '../config/dataConfig'
 
 interface User {
   id: string
@@ -26,7 +27,7 @@ export default function UsersPage() {
   const [newUser, setNewUser] = useState({ name: '', email: '' })
   const [isCreating, setIsCreating] = useState(false)
 
-  const API_BASE = 'http://localhost:8000'
+  const API_BASE = API_CONFIG.baseUrl
 
   // Fetch users and stats
   const fetchData = async () => {

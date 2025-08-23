@@ -1,13 +1,23 @@
 /**
  * API Service
- * Centralized API communication service with dynamic configuration
+ * Centralized API communication service with dynamic configuration and automatic token refresh
  */
 
 import { API_CONFIG, API_ENDPOINTS } from '../config/dataConfig';
+import { authService } from './auth';
+
+interface QueuedRequest {
+  resolve: (value: Response) => void;
+  reject: (error: Error) => void;
+  url: string;
+  options: RequestInit;
+}
 
 class ApiService {
   private baseUrl: string;
   private timeout: number;
+  private isRefreshing: boolean = false;
+  private requestQueue: QueuedRequest[] = [];
 
   constructor() {
     this.baseUrl = API_CONFIG.baseUrl;
@@ -15,30 +25,38 @@ class ApiService {
   }
 
   /**
-   * Get authentication headers
+   * Get authentication headers with automatic token refresh
    */
-  private getAuthHeaders(): Record<string, string> {
-    const token = localStorage.getItem('access_token');
+  private async getAuthHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const token = await authService.getValidAccessToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.warn('Failed to get valid access token:', error);
     }
     
     return headers;
   }
 
   /**
-   * Get authentication headers for form data
+   * Get authentication headers for form data with automatic token refresh
    */
-  private getFormAuthHeaders(): Record<string, string> {
-    const token = localStorage.getItem('access_token');
+  private async getFormAuthHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {};
     
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const token = await authService.getValidAccessToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.warn('Failed to get valid access token for form upload:', error);
     }
     
     return headers;
@@ -60,7 +78,30 @@ class ApiService {
   }
 
   /**
-   * Generic fetch wrapper with timeout and error handling
+   * Process queued requests after token refresh
+   */
+  private processRequestQueue(): void {
+    const queue = [...this.requestQueue];
+    this.requestQueue = [];
+    
+    queue.forEach(({ resolve, reject, url, options }) => {
+      this.fetchWithTimeout(url, options)
+        .then(resolve)
+        .catch(reject);
+    });
+  }
+
+  /**
+   * Queue request during token refresh
+   */
+  private queueRequest(url: string, options: RequestInit): Promise<Response> {
+    return new Promise((resolve, reject) => {
+      this.requestQueue.push({ resolve, reject, url, options });
+    });
+  }
+
+  /**
+   * Generic fetch wrapper with timeout, error handling, and automatic token refresh
    */
   private async fetchWithTimeout(
     url: string,
@@ -76,6 +117,56 @@ class ApiService {
       });
 
       clearTimeout(timeoutId);
+
+      // Handle 401 Unauthorized - attempt token refresh
+      if (response.status === 401) {
+        // If already refreshing, queue this request
+        if (this.isRefreshing) {
+          return this.queueRequest(url, options);
+        }
+
+        // Attempt token refresh
+        this.isRefreshing = true;
+        try {
+          await authService.refreshAccessToken();
+          
+          // Retry original request with new token
+          const newHeaders = await this.getAuthHeaders();
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: {
+              ...options.headers,
+              ...newHeaders,
+            },
+            signal: controller.signal,
+          });
+
+          // Process queued requests
+          this.processRequestQueue();
+          
+          if (!retryResponse.ok && retryResponse.status !== 401) {
+            const errorData = await retryResponse.json().catch(() => ({}));
+            throw new Error(errorData.detail || `HTTP error! status: ${retryResponse.status}`);
+          }
+
+          return retryResponse;
+        } catch (refreshError) {
+          // Token refresh failed, redirect to login
+          console.error('Token refresh failed:', refreshError);
+          authService.logout();
+          
+          // Reject all queued requests
+          const queue = [...this.requestQueue];
+          this.requestQueue = [];
+          queue.forEach(({ reject }) => {
+            reject(new Error('Authentication failed'));
+          });
+          
+          throw new Error('Authentication failed');
+        } finally {
+          this.isRefreshing = false;
+        }
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -99,9 +190,10 @@ class ApiService {
    */
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
     const url = this.createUrl(endpoint, params);
+    const headers = await this.getAuthHeaders();
     const response = await this.fetchWithTimeout(url, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers,
     });
     
     return response.json();
@@ -112,9 +204,10 @@ class ApiService {
    */
   async post<T>(endpoint: string, data?: any): Promise<T> {
     const url = this.createUrl(endpoint);
+    const headers = await this.getAuthHeaders();
     const response = await this.fetchWithTimeout(url, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
     
@@ -126,9 +219,10 @@ class ApiService {
    */
   async put<T>(endpoint: string, data?: any): Promise<T> {
     const url = this.createUrl(endpoint);
+    const headers = await this.getAuthHeaders();
     const response = await this.fetchWithTimeout(url, {
       method: 'PUT',
-      headers: this.getAuthHeaders(),
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
     
@@ -140,9 +234,10 @@ class ApiService {
    */
   async delete<T>(endpoint: string): Promise<T> {
     const url = this.createUrl(endpoint);
+    const headers = await this.getAuthHeaders();
     const response = await this.fetchWithTimeout(url, {
       method: 'DELETE',
-      headers: this.getAuthHeaders(),
+      headers,
     });
     
     return response.json();
@@ -153,9 +248,10 @@ class ApiService {
    */
   async uploadForm<T>(endpoint: string, formData: FormData): Promise<T> {
     const url = this.createUrl(endpoint);
+    const headers = await this.getFormAuthHeaders();
     const response = await this.fetchWithTimeout(url, {
       method: 'POST',
-      headers: this.getFormAuthHeaders(),
+      headers,
       body: formData,
     });
     
@@ -230,14 +326,14 @@ class ApiService {
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('access_token');
+    return authService.isAuthenticated();
   }
 
   /**
    * Clear authentication
    */
   clearAuth(): void {
-    localStorage.removeItem('access_token');
+    authService.logout();
   }
 }
 

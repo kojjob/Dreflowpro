@@ -15,6 +15,7 @@ import { SocialButtons } from "@/app/components/auth/SocialButtons"
 import { Button } from "@/app/components/ui/Button"
 import { Input } from "@/app/components/ui/Input"
 import { Alert, AlertDescription } from "@/app/components/ui/Alert"
+import { authService } from "@/app/services/auth"
 
 const signupSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -53,26 +54,17 @@ export default function SignupPage() {
 
     try {
       const { confirm_password, ...submitData } = data
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
+      await authService.register({
+        email: submitData.email,
+        password: submitData.password,
+        name: `${submitData.first_name} ${submitData.last_name}`,
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        localStorage.setItem('access_token', result.access_token)
-        localStorage.setItem('refresh_token', result.refresh_token)
-        toast.success('Account created successfully! Welcome aboard!')
-        router.push('/dashboard')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.detail || 'Registration failed. Please try again.')
-      }
+      toast.success('Account created successfully! Welcome aboard!')
+      router.push('/dashboard')
     } catch (error) {
-      setError('Network error. Please check your connection and try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
