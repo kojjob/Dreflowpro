@@ -9,6 +9,6 @@ router = APIRouter(prefix="/api/v1")
 
 # Include all sub-routers
 router.include_router(auth_router, prefix="/auth", tags=["authentication"])
-router.include_router(connectors_router, tags=["connectors"])
+router.include_router(connectors_router, prefix="/connectors", tags=["connectors"])
 router.include_router(tasks_router, tags=["background_tasks"])
 router.include_router(pipelines_router, tags=["pipelines"])
