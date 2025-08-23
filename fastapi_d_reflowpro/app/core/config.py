@@ -24,21 +24,14 @@ class Settings(BaseSettings):
         env="DATABASE_URL"
     )
     
-    # Redis
-    REDIS_URL: str = Field(
-        default="redis://localhost:6379/0",
-        env="REDIS_URL"
-    )
+    # Redis Settings
+    REDIS_URL: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=0, env="REDIS_DB")
     
-    # Celery
-    CELERY_BROKER_URL: str = Field(
-        default="redis://localhost:6379/0",
-        env="CELERY_BROKER_URL"
-    )
-    CELERY_RESULT_BACKEND: str = Field(
-        default="redis://localhost:6379/0",
-        env="CELERY_RESULT_BACKEND"
-    )
+    # Cache Settings
+    CACHE_TTL: int = Field(default=3600, env="CACHE_TTL")  # 1 hour default
+    SESSION_TTL: int = Field(default=86400, env="SESSION_TTL")  # 24 hours default
     
     # File Storage
     UPLOAD_FOLDER: str = Field(default="uploads", env="UPLOAD_FOLDER")
@@ -48,14 +41,8 @@ class Settings(BaseSettings):
         env="ALLOWED_EXTENSIONS"
     )
     
-    # Redis Settings
-    REDIS_URL: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
-    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
-    REDIS_DB: int = Field(default=0, env="REDIS_DB")
-    
-    # Cache Settings
-    CACHE_TTL: int = Field(default=3600, env="CACHE_TTL")  # 1 hour default
-    SESSION_TTL: int = Field(default=86400, env="SESSION_TTL")  # 24 hours default
+    # Environment
+    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     
     # External Services
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
