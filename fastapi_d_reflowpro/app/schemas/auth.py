@@ -78,10 +78,13 @@ class UserProfile(BaseModel):
     email: str = Field(..., description="User email")
     first_name: str = Field(..., description="First name")
     last_name: str = Field(..., description="Last name")
+    avatar_url: Optional[str] = Field(None, description="Profile picture URL")
     role: str = Field(..., description="User role")
+    auth_method: str = Field(..., description="Primary authentication method")
     organization_id: Optional[str] = Field(None, description="Organization ID")
     is_active: bool = Field(..., description="Whether user is active")
     email_verified: bool = Field(..., description="Whether email is verified")
+    has_social_accounts: bool = Field(default=False, description="Whether user has connected social accounts")
     created_at: datetime = Field(..., description="Account creation timestamp")
     last_login: Optional[datetime] = Field(None, description="Last login timestamp")
 
@@ -96,7 +99,7 @@ class ErrorResponse(BaseModel):
     detail: str = Field(..., description="Error message")
     error_code: Optional[str] = Field(None, description="Error code")
 
-# OAuth schemas (for future integration)
+# OAuth schemas
 class OAuthProvider(BaseModel):
     """OAuth provider info."""
     name: str = Field(..., description="Provider name")
@@ -107,6 +110,24 @@ class OAuthCallback(BaseModel):
     """OAuth callback data."""
     code: str = Field(..., description="Authorization code")
     state: Optional[str] = Field(None, description="State parameter")
+
+class OAuthLoginRequest(BaseModel):
+    """OAuth login initiation request."""
+    provider: str = Field(..., description="OAuth provider (google, github, microsoft)")
+    redirect_url: Optional[str] = Field(None, description="Custom redirect URL after auth")
+
+class SocialAccountInfo(BaseModel):
+    """Social account information."""
+    id: str = Field(..., description="Social account ID")
+    provider: str = Field(..., description="OAuth provider")
+    provider_account_email: Optional[str] = Field(None, description="Email from provider")
+    is_primary: bool = Field(..., description="Is primary auth method")
+    created_at: datetime = Field(..., description="Account connection date")
+
+class SocialAccountList(BaseModel):
+    """List of connected social accounts."""
+    accounts: list[SocialAccountInfo] = Field(..., description="Connected social accounts")
+    total: int = Field(..., description="Total number of connected accounts")
 
 # Two-factor authentication schemas (for future implementation)
 class TwoFactorSetup(BaseModel):

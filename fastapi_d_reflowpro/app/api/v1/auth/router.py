@@ -118,7 +118,8 @@ async def logout(
 
 @router.get("/me", response_model=UserProfile)
 async def get_current_user_profile(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """Get current user profile with caching."""
     from ....core.redis import CacheService
@@ -130,16 +131,28 @@ async def get_current_user_profile(
     if cached_profile:
         return UserProfile(**cached_profile)
     
+    # Check if user has social accounts by querying directly
+    from sqlalchemy import select, func
+    from ....models.user import SocialAccount
+    
+    social_count_result = await db.execute(
+        select(func.count()).select_from(SocialAccount).where(SocialAccount.user_id == current_user.id)
+    )
+    has_social_accounts = social_count_result.scalar() > 0
+    
     # Create user profile
     user_profile = UserProfile(
         id=str(current_user.id),
         email=current_user.email,
         first_name=current_user.first_name,
         last_name=current_user.last_name,
+        avatar_url=current_user.avatar_url,
         role=current_user.role,
+        auth_method=current_user.auth_method,
         organization_id=str(current_user.organization_id) if current_user.organization_id else None,
         is_active=current_user.is_active,
         email_verified=current_user.is_verified,
+        has_social_accounts=has_social_accounts,
         created_at=current_user.created_at,
         last_login=current_user.last_login
     )
@@ -177,10 +190,13 @@ async def auth_status(
             email=current_user.email,
             first_name=current_user.first_name,
             last_name=current_user.last_name,
+            avatar_url=current_user.avatar_url,
             role=current_user.role,
+            auth_method=current_user.auth_method,
             organization_id=str(current_user.organization_id) if current_user.organization_id else None,
             is_active=current_user.is_active,
             email_verified=current_user.is_verified,
+            has_social_accounts=len(current_user.social_accounts) > 0 if current_user.social_accounts else False,
             created_at=current_user.created_at,
             last_login=current_user.last_login
         ),
