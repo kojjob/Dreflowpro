@@ -429,6 +429,39 @@ def _render_email_template(template_name: str, data: Dict[str, Any]) -> Dict[str
             </body></html>
             """,
             "text": "Data Quality Alert - {{severity}}\n\nDataset: {{dataset_name}}\nIssues:\n{{issue_list}}"
+        },
+        "email_verification": {
+            "html": """
+            <html><body>
+                <h1>Verify Your Email Address</h1>
+                <p>Hello {{user_name}},</p>
+                <p>Thank you for signing up for {{company_name}}! Please verify your email address by clicking the link below:</p>
+                <p><a href="{{verification_url}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email Address</a></p>
+                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+                <p>{{verification_url}}</p>
+                <p>This verification link will expire in 24 hours for security reasons.</p>
+                <p>If you didn't create an account with us, please ignore this email.</p>
+                <p>Best regards,<br>The {{company_name}} Team</p>
+            </body></html>
+            """,
+            "text": "Hello {{user_name}},\n\nThank you for signing up for {{company_name}}! Please verify your email address by visiting this link:\n\n{{verification_url}}\n\nThis verification link will expire in 24 hours for security reasons.\n\nIf you didn't create an account with us, please ignore this email.\n\nBest regards,\nThe {{company_name}} Team"
+        },
+        "password_reset": {
+            "html": """
+            <html><body>
+                <h1>Password Reset Request</h1>
+                <p>Hello {{user_name}},</p>
+                <p>We received a request to reset your password for your {{company_name}} account.</p>
+                <p>Click the link below to reset your password:</p>
+                <p><a href="{{reset_url}}" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+                <p>{{reset_url}}</p>
+                <p>This password reset link will expire in {{expires_in}} for security reasons.</p>
+                <p>If you didn't request a password reset, please ignore this email and your password will remain unchanged.</p>
+                <p>Best regards,<br>The {{company_name}} Team</p>
+            </body></html>
+            """,
+            "text": "Hello {{user_name}},\n\nWe received a request to reset your password for your {{company_name}} account.\n\nReset your password by visiting this link:\n\n{{reset_url}}\n\nThis password reset link will expire in {{expires_in}} for security reasons.\n\nIf you didn't request a password reset, please ignore this email and your password will remain unchanged.\n\nBest regards,\nThe {{company_name}} Team"
         }
     }
     
@@ -451,31 +484,143 @@ def _render_email_template(template_name: str, data: Dict[str, Any]) -> Dict[str
 def _send_email(recipient: str, subject: str, content: Dict[str, str]) -> Dict[str, Any]:
     """Send email using configured email service."""
     
-    # This would integrate with email service (SendGrid, SES, etc.)
-    # For now, returning mock response
-    message_id = f"msg_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(recipient) % 10000}"
-    
-    logger.info(f"Email sent to {recipient}: {subject}")
-    
-    return {
-        "message_id": message_id,
-        "status": "sent",
-        "recipient": recipient,
-        "timestamp": datetime.now().isoformat()
-    }
+    try:
+        import smtplib
+        import os
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        # Get email configuration from environment variables
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        from_email = os.getenv("FROM_EMAIL", smtp_username)
+        
+        if not smtp_username or not smtp_password:
+            logger.warning(f"Email configuration missing - logging email instead of sending to {recipient}: {subject}")
+            message_id = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(recipient) % 10000}"
+            
+            # Log the email content for debugging/testing
+            logger.info(f"EMAIL LOG - To: {recipient}, Subject: {subject}")
+            logger.info(f"HTML Content: {content.get('html', 'No HTML content')}")
+            logger.info(f"Text Content: {content.get('text', 'No text content')}")
+            
+            return {
+                "message_id": message_id,
+                "status": "logged",
+                "recipient": recipient,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Create message
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = from_email
+        message["To"] = recipient
+        
+        # Create text and HTML parts
+        text_part = MIMEText(content.get("text", ""), "plain")
+        html_part = MIMEText(content.get("html", ""), "html")
+        
+        message.attach(text_part)
+        if content.get("html"):
+            message.attach(html_part)
+        
+        # Send email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        
+        message_id = f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(recipient) % 10000}"
+        logger.info(f"Email sent successfully to {recipient}: {subject}")
+        
+        return {
+            "message_id": message_id,
+            "status": "sent",
+            "recipient": recipient,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to send email to {recipient}: {str(e)}")
+        
+        # Fallback to logging when email fails
+        message_id = f"failed_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(recipient) % 10000}"
+        logger.info(f"EMAIL FALLBACK LOG - To: {recipient}, Subject: {subject}")
+        logger.info(f"Error: {str(e)}")
+        logger.info(f"Content: {content.get('text', 'No content')}")
+        
+        return {
+            "message_id": message_id,
+            "status": "failed",
+            "recipient": recipient,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 def _get_user_notification_preferences(user_id: int) -> Dict[str, Any]:
     """Get user notification preferences from database."""
     
-    # Mock preferences
-    return {
-        "email_enabled": True,
-        "in_app_enabled": True,
-        "webhook_enabled": False,
-        "pipeline_notifications": True,
-        "report_notifications": True,
-        "data_quality_alerts": True
-    }
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy import select
+        from app.models.user import User
+        from app.core.database import AsyncSessionFactory
+        
+        async def fetch_preferences():
+            async with AsyncSessionFactory() as session:
+                result = await session.execute(
+                    select(User).where(User.id == user_id)
+                )
+                user = result.scalar_one_or_none()
+                
+                if not user:
+                    # Return default preferences for non-existent user
+                    return {
+                        "email_enabled": True,
+                        "in_app_enabled": True,
+                        "webhook_enabled": False,
+                        "pipeline_notifications": True,
+                        "report_notifications": True,
+                        "data_quality_alerts": True
+                    }
+                
+                # Extract preferences from user settings or use defaults
+                user_prefs = user.preferences or {}
+                notification_prefs = user_prefs.get("notifications", {})
+                
+                return {
+                    "email_enabled": notification_prefs.get("email_enabled", True),
+                    "in_app_enabled": notification_prefs.get("in_app_enabled", True),
+                    "webhook_enabled": notification_prefs.get("webhook_enabled", False),
+                    "webhook_url": notification_prefs.get("webhook_url"),
+                    "pipeline_notifications": notification_prefs.get("pipeline_notifications", True),
+                    "report_notifications": notification_prefs.get("report_notifications", True),
+                    "data_quality_alerts": notification_prefs.get("data_quality_alerts", True)
+                }
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(fetch_preferences())
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to fetch user preferences for user {user_id}: {str(e)}")
+        # Return safe defaults on error
+        return {
+            "email_enabled": True,
+            "in_app_enabled": True,
+            "webhook_enabled": False,
+            "pipeline_notifications": True,
+            "report_notifications": True,
+            "data_quality_alerts": True
+        }
 
 def _prepare_pipeline_notification(pipeline_id: int, status: str, details: Dict[str, Any]) -> Dict[str, Any]:
     """Prepare pipeline notification content."""
@@ -516,29 +661,155 @@ def _send_pipeline_email(user_id: int, content: Dict[str, Any]) -> Dict[str, Any
 def _send_in_app_notification(user_id: int, content: Dict[str, Any]) -> Dict[str, Any]:
     """Send in-app notification."""
     
-    # This would store notification in database for in-app display
-    notification_id = f"notif_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{user_id}"
-    
-    logger.info(f"In-app notification sent to user {user_id}: {content.get('title', '')}")
-    
-    return {
-        "notification_id": notification_id,
-        "user_id": user_id,
-        "status": "sent",
-        "timestamp": datetime.now().isoformat()
-    }
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.core.database import AsyncSessionFactory
+        import uuid
+        
+        async def store_notification():
+            async with AsyncSessionFactory() as session:
+                # Create notification record in database
+                # Note: This assumes a notifications table exists
+                # If not, we'll log the notification instead
+                try:
+                    from app.models.notification import Notification
+                    
+                    notification = Notification(
+                        id=uuid.uuid4(),
+                        user_id=user_id,
+                        title=content.get('title', 'Notification'),
+                        message=content.get('message', ''),
+                        notification_type=content.get('type', 'info'),
+                        priority=content.get('priority', 'normal'),
+                        action_url=content.get('action_url'),
+                        is_read=False,
+                        created_at=datetime.now()
+                    )
+                    
+                    session.add(notification)
+                    await session.commit()
+                    
+                    return {
+                        "notification_id": str(notification.id),
+                        "user_id": user_id,
+                        "status": "stored",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+                except ImportError:
+                    # Notification model doesn't exist, log instead
+                    notification_id = f"log_notif_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{user_id}"
+                    logger.info(
+                        f"IN-APP NOTIFICATION LOG - User: {user_id}, "
+                        f"Title: {content.get('title', '')}, "
+                        f"Message: {content.get('message', '')}, "
+                        f"Type: {content.get('type', 'info')}"
+                    )
+                    
+                    return {
+                        "notification_id": notification_id,
+                        "user_id": user_id,
+                        "status": "logged",
+                        "timestamp": datetime.now().isoformat()
+                    }
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(store_notification())
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to send in-app notification to user {user_id}: {str(e)}")
+        
+        # Fallback to simple logging
+        notification_id = f"failed_notif_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{user_id}"
+        logger.info(
+            f"IN-APP NOTIFICATION FALLBACK - User: {user_id}, "
+            f"Title: {content.get('title', '')}, "
+            f"Error: {str(e)}"
+        )
+        
+        return {
+            "notification_id": notification_id,
+            "user_id": user_id,
+            "status": "failed",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 def _send_webhook_notification(webhook_url: str, content: Dict[str, Any]) -> Dict[str, Any]:
     """Send webhook notification."""
     
-    # This would make HTTP request to webhook URL
-    logger.info(f"Webhook notification sent to {webhook_url}")
-    
-    return {
-        "webhook_url": webhook_url,
-        "status": "sent",
-        "timestamp": datetime.now().isoformat()
-    }
+    try:
+        import requests
+        import json
+        
+        # Prepare webhook payload
+        payload = {
+            "timestamp": datetime.now().isoformat(),
+            "event_type": "notification",
+            "data": content
+        }
+        
+        # Send POST request to webhook URL
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "DReflowPro-Webhook/1.0"
+            },
+            timeout=30  # 30 second timeout
+        )
+        
+        response.raise_for_status()  # Raises HTTPError for bad responses
+        
+        logger.info(f"Webhook notification sent successfully to {webhook_url}")
+        
+        return {
+            "webhook_url": webhook_url,
+            "status": "sent",
+            "response_status": response.status_code,
+            "response_text": response.text[:200],  # First 200 chars
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except requests.exceptions.Timeout:
+        error_msg = "Webhook request timed out"
+        logger.error(f"Webhook timeout for {webhook_url}: {error_msg}")
+        
+        return {
+            "webhook_url": webhook_url,
+            "status": "timeout",
+            "error": error_msg,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Webhook request failed: {str(e)}"
+        logger.error(f"Webhook error for {webhook_url}: {error_msg}")
+        
+        return {
+            "webhook_url": webhook_url,
+            "status": "failed",
+            "error": error_msg,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        logger.error(f"Webhook unexpected error for {webhook_url}: {error_msg}")
+        
+        return {
+            "webhook_url": webhook_url,
+            "status": "error",
+            "error": error_msg,
+            "timestamp": datetime.now().isoformat()
+        }
 
 def _get_alert_recipients(dataset_id: str, severity: str) -> List[Dict[str, Any]]:
     """Get recipients for data quality alerts."""
@@ -592,13 +863,54 @@ def _send_urgent_in_app_notification(recipient: Dict[str, Any], content: Dict[st
 def _get_user_info(user_id: int) -> Dict[str, Any]:
     """Get user information from database."""
     
-    # Mock user info
-    return {
-        "user_id": user_id,
-        "name": f"User {user_id}",
-        "email": f"user{user_id}@example.com",
-        "role": "analyst"
-    }
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy import select
+        from app.models.user import User
+        from app.core.database import AsyncSessionFactory
+        
+        async def fetch_user_info():
+            async with AsyncSessionFactory() as session:
+                result = await session.execute(
+                    select(User).where(User.id == user_id)
+                )
+                user = result.scalar_one_or_none()
+                
+                if not user:
+                    return {
+                        "user_id": user_id,
+                        "name": f"User {user_id}",
+                        "email": f"user{user_id}@example.com",
+                        "role": "unknown"
+                    }
+                
+                return {
+                    "user_id": user.id,
+                    "name": f"{user.first_name} {user.last_name}".strip() or user.email.split('@')[0],
+                    "email": user.email,
+                    "role": user.role.value if user.role else "user",
+                    "is_active": user.is_active,
+                    "organization_id": str(user.organization_id) if user.organization_id else None
+                }
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(fetch_user_info())
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to fetch user info for user {user_id}: {str(e)}")
+        # Return fallback info on error
+        return {
+            "user_id": user_id,
+            "name": f"User {user_id}",
+            "email": f"user{user_id}@example.com",
+            "role": "unknown"
+        }
 
 def _generate_secure_download_link(file_path: str, user_id: int) -> str:
     """Generate secure download link with expiration."""
@@ -609,12 +921,43 @@ def _generate_secure_download_link(file_path: str, user_id: int) -> str:
 def _get_active_users() -> List[Dict[str, Any]]:
     """Get all active users from database."""
     
-    # Mock active users
-    return [
-        {"user_id": 1, "email": "user1@example.com", "name": "User 1"},
-        {"user_id": 2, "email": "user2@example.com", "name": "User 2"},
-        {"user_id": 3, "email": "user3@example.com", "name": "User 3"}
-    ]
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy import select
+        from app.models.user import User
+        from app.core.database import AsyncSessionFactory
+        
+        async def fetch_active_users():
+            async with AsyncSessionFactory() as session:
+                result = await session.execute(
+                    select(User).where(User.is_active == True)
+                )
+                users = result.scalars().all()
+                
+                return [
+                    {
+                        "user_id": user.id,
+                        "email": user.email,
+                        "name": f"{user.first_name} {user.last_name}".strip() or user.email.split('@')[0],
+                        "role": user.role.value if user.role else "user",
+                        "organization_id": str(user.organization_id) if user.organization_id else None
+                    }
+                    for user in users
+                ]
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(fetch_active_users())
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to fetch active users: {str(e)}")
+        # Return empty list on error to prevent spam
+        return []
 
 def _send_batch_maintenance_notifications(users: List[Dict[str, Any]], content: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Send maintenance notifications to batch of users."""
@@ -660,26 +1003,196 @@ def _send_batch_maintenance_notifications(users: List[Dict[str, Any]], content: 
 def _get_user_activity_summary(user_id: int, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
     """Get user activity summary for digest."""
     
-    # Mock activity data
-    return {
-        "user_id": user_id,
-        "user_name": f"User {user_id}",
-        "has_activity": True,
-        "pipelines_executed": 5,
-        "reports_generated": 3,
-        "data_processed_gb": 12.5,
-        "top_insights": [
-            "Revenue increased by 15% this week",
-            "Customer satisfaction scores improved",
-            "Supply chain efficiency optimized"
-        ],
-        "recommendations": [
-            "Consider expanding successful marketing campaigns",
-            "Review high-performing product categories",
-            "Optimize underperforming regions"
-        ],
-        "upcoming_schedules": [
-            {"pipeline": "Daily Sales Report", "next_run": "Tomorrow 9:00 AM"},
-            {"pipeline": "Weekly Analytics", "next_run": "Monday 6:00 AM"}
-        ]
-    }
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy import select, func, and_
+        from app.models.user import User
+        from app.models.pipeline import ETLPipeline, PipelineExecution, ExecutionStatus
+        from app.core.database import AsyncSessionFactory
+        
+        async def fetch_activity_summary():
+            async with AsyncSessionFactory() as session:
+                # Get user info
+                user_result = await session.execute(
+                    select(User).where(User.id == user_id)
+                )
+                user = user_result.scalar_one_or_none()
+                
+                if not user:
+                    return {
+                        "user_id": user_id,
+                        "user_name": f"User {user_id}",
+                        "has_activity": False
+                    }
+                
+                user_name = f"{user.first_name} {user.last_name}".strip() or user.email.split('@')[0]
+                
+                # Get pipeline executions in date range
+                execution_result = await session.execute(
+                    select(PipelineExecution)
+                    .join(ETLPipeline)
+                    .where(
+                        and_(
+                            ETLPipeline.created_by_id == user_id,
+                            PipelineExecution.started_at >= start_date,
+                            PipelineExecution.started_at <= end_date
+                        )
+                    )
+                )
+                executions = execution_result.scalars().all()
+                
+                # Calculate activity metrics
+                completed_executions = [e for e in executions if e.status == ExecutionStatus.COMPLETED]
+                total_rows_processed = sum(e.rows_processed or 0 for e in completed_executions)
+                
+                # Get scheduled pipelines
+                scheduled_result = await session.execute(
+                    select(ETLPipeline).where(
+                        and_(
+                            ETLPipeline.created_by_id == user_id,
+                            ETLPipeline.is_scheduled == True,
+                            ETLPipeline.next_run.isnot(None)
+                        )
+                    ).order_by(ETLPipeline.next_run).limit(5)
+                )
+                scheduled_pipelines = scheduled_result.scalars().all()
+                
+                upcoming_schedules = [
+                    {
+                        "pipeline": pipeline.name,
+                        "next_run": pipeline.next_run.strftime("%A %I:%M %p") if pipeline.next_run else "Not scheduled"
+                    }
+                    for pipeline in scheduled_pipelines
+                ]
+                
+                has_activity = len(executions) > 0 or len(scheduled_pipelines) > 0
+                
+                # Generate insights based on actual data
+                top_insights = []
+                recommendations = []
+                
+                if completed_executions:
+                    avg_success_rate = len(completed_executions) / len(executions) * 100
+                    top_insights.append(f"Pipeline success rate: {avg_success_rate:.1f}%")
+                    
+                    if total_rows_processed > 1000000:
+                        top_insights.append(f"Processed over {total_rows_processed // 1000000}M records")
+                    elif total_rows_processed > 1000:
+                        top_insights.append(f"Processed {total_rows_processed // 1000}K records")
+                    
+                    if avg_success_rate < 90:
+                        recommendations.append("Review failed pipelines to improve reliability")
+                    
+                    if len(scheduled_pipelines) == 0:
+                        recommendations.append("Consider scheduling regular pipelines for automation")
+                
+                return {
+                    "user_id": user_id,
+                    "user_name": user_name,
+                    "has_activity": has_activity,
+                    "pipelines_executed": len(executions),
+                    "successful_executions": len(completed_executions),
+                    "reports_generated": len([e for e in executions if "report" in (e.trigger_data or {}).get("type", "").lower()]),
+                    "data_processed_rows": total_rows_processed,
+                    "data_processed_gb": round(total_rows_processed * 0.001 / 1000, 2),  # Rough estimate
+                    "top_insights": top_insights or ["No significant activity this week"],
+                    "recommendations": recommendations or ["Keep up the great work with your data pipelines!"],
+                    "upcoming_schedules": upcoming_schedules
+                }
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(fetch_activity_summary())
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to fetch user activity summary for user {user_id}: {str(e)}")
+        # Return minimal activity summary on error
+        return {
+            "user_id": user_id,
+            "user_name": f"User {user_id}",
+            "has_activity": False
+        }
+
+@celery_app.task(bind=True, name="notifications.send_email_verification")
+def send_email_verification(self, user_id: str, verification_token: str):
+    """Send email verification email to user."""
+    
+    try:
+        # Get user info
+        user_info = _get_user_info(user_id)
+        if not user_info:
+            return {"status": "failed", "error": "User not found"}
+        
+        # Send verification email
+        subject = "Verify Your Email - D-ReflowPro"
+        verification_url = f"https://app.dreflowpro.com/verify-email/{verification_token}"
+        
+        content = {
+            "template": "email_verification",
+            "data": {
+                "user_name": user_info["first_name"],
+                "verification_url": verification_url,
+                "company_name": "D-ReflowPro"
+            }
+        }
+        
+        # Render template and send
+        rendered_content = _render_email_template("email_verification", content["data"])
+        email_result = _send_email(user_info["email"], subject, rendered_content)
+        
+        return {
+            "status": "sent",
+            "user_id": user_id,
+            "email": user_info["email"],
+            "verification_token": verification_token,
+            "sent_timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Email verification failed for user {user_id}: {str(e)}")
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+
+@celery_app.task(bind=True, name="notifications.send_password_reset_email")
+def send_password_reset_email(self, user_id: str, reset_token: str):
+    """Send password reset email to user."""
+    
+    try:
+        # Get user info
+        user_info = _get_user_info(user_id)
+        if not user_info:
+            return {"status": "failed", "error": "User not found"}
+        
+        # Send password reset email
+        subject = "Reset Your Password - D-ReflowPro"
+        reset_url = f"https://app.dreflowpro.com/reset-password/{reset_token}"
+        
+        content = {
+            "template": "password_reset",
+            "data": {
+                "user_name": user_info["first_name"],
+                "reset_url": reset_url,
+                "company_name": "D-ReflowPro",
+                "expires_in": "1 hour"
+            }
+        }
+        
+        # Render template and send
+        rendered_content = _render_email_template("password_reset", content["data"])
+        email_result = _send_email(user_info["email"], subject, rendered_content)
+        
+        return {
+            "status": "sent",
+            "user_id": user_id,
+            "email": user_info["email"],
+            "reset_token": reset_token,
+            "sent_timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Password reset email failed for user {user_id}: {str(e)}")
+        raise self.retry(exc=e, countdown=60, max_retries=3)

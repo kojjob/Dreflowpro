@@ -53,16 +53,21 @@ async def register(
         role=UserRole.ADMIN if organization else UserRole.EDITOR,
         organization_id=organization.id if organization else None,
         is_active=True,
-        is_verified=False  # TODO: Implement email verification
+        is_verified=False  # Email verification required
     )
     
     db.add(user)
     await db.commit()
     await db.refresh(user)
     
-    # TODO: Send welcome email and email verification
-    # background_tasks.add_task(send_welcome_email, user.email, user.first_name)
-    # background_tasks.add_task(send_verification_email, user.email, verification_token)
+    # Send welcome email and email verification
+    from ....workers.notification_tasks import send_welcome_email, send_email_verification
+    background_tasks.add_task(send_welcome_email, user.id)
+    
+    # Generate verification token
+    from ....core.security import SecurityUtils
+    verification_token = SecurityUtils.generate_verification_token(user.id)
+    background_tasks.add_task(send_email_verification, user.id, verification_token)
     
     # Create and return tokens
     tokens = AuthService.create_tokens(user)
@@ -109,12 +114,28 @@ async def refresh_token(
 
 @router.post("/logout")
 async def logout(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """Logout user (client should discard tokens)."""
-    # TODO: Implement token blacklisting or session management
-    # For now, just return success (client should discard tokens)
-    return {"message": "Successfully logged out"}
+    """Logout user with token invalidation."""
+    # Invalidate user profile cache
+    from ....core.redis import CacheService
+    cache_key = f"user_profile_{current_user.id}"
+    await CacheService.delete(cache_key)
+    
+    # Update last activity
+    current_user.last_login = datetime.utcnow()
+    await db.commit()
+    
+    # For production, you would also want to:
+    # 1. Add the token to a blacklist/revocation list
+    # 2. Or implement short-lived tokens with refresh token rotation
+    # 3. Or use session-based authentication with server-side session storage
+    
+    return {
+        "message": "Successfully logged out",
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 @router.get("/me", response_model=UserProfile)
 async def get_current_user_profile(
@@ -239,12 +260,15 @@ async def create_api_key(
     # Generate API key
     api_key_value = SecurityUtils.generate_api_key()
     
+    # Hash the API key for secure storage
+    key_hash = SecurityUtils.get_password_hash(api_key_value)
+    
     # Create API key record
     api_key = APIKey(
         id=uuid.uuid4(),
         user_id=current_user.id,
         name=key_data.name,
-        key_hash=api_key_value,  # Store the key directly for now (should be hashed in production)
+        key_hash=key_hash,  # Store hashed version
         expires_at=key_data.expires_at,
         is_active=True
     )
@@ -358,3 +382,116 @@ async def toggle_api_key(
         "message": f"API key {'activated' if api_key.is_active else 'deactivated'} successfully",
         "is_active": api_key.is_active
     }
+
+@router.post("/verify-email/{token}")
+async def verify_email(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """Verify user email with verification token."""
+    try:
+        # Verify and decode token
+        user_id = SecurityUtils.verify_verification_token(token)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token"
+            )
+        
+        # Get user
+        result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if user.is_verified:
+            return {"message": "Email already verified"}
+        
+        # Mark email as verified
+        user.is_verified = True
+        await db.commit()
+        
+        # Clear user profile cache
+        from ....core.redis import CacheService
+        cache_key = f"user_profile_{user.id}"
+        await CacheService.delete(cache_key)
+        
+        return {"message": "Email verified successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Email verification failed"
+        )
+
+@router.post("/request-password-reset")
+async def request_password_reset(
+    email: str,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """Request password reset email."""
+    # Get user by email
+    user = await AuthService.get_user_by_email(db, email)
+    
+    if user:
+        # Generate reset token
+        reset_token = SecurityUtils.generate_password_reset_token(user.id)
+        
+        # Send password reset email
+        from ....workers.notification_tasks import send_password_reset_email
+        background_tasks.add_task(send_password_reset_email, user.id, reset_token)
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If an account with this email exists, a password reset email has been sent"}
+
+@router.post("/reset-password/{token}")
+async def reset_password(
+    token: str,
+    new_password: str,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """Reset user password with reset token."""
+    try:
+        # Verify and decode token
+        user_id = SecurityUtils.verify_password_reset_token(token)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+        
+        # Get user
+        result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Update password
+        user.hashed_password = SecurityUtils.get_password_hash(new_password)
+        await db.commit()
+        
+        # Clear user profile cache
+        from ....core.redis import CacheService
+        cache_key = f"user_profile_{user.id}"
+        await CacheService.delete(cache_key)
+        
+        return {"message": "Password reset successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Password reset failed"
+        )

@@ -447,11 +447,83 @@ def optimize_database(self, optimization_config: Dict[str, Any]):
 def _cleanup_expired_task_results() -> int:
     """Clean up expired Celery task results."""
     
-    # This would clean up Redis/database records older than retention period
-    # Mock cleanup count
-    expired_count = 150
-    logger.info(f"Cleaned up {expired_count} expired task results")
-    return expired_count
+    try:
+        from celery.result import AsyncResult
+        from app.workers.celery_app import celery_app
+        
+        # Get Redis connection from Celery
+        redis_client = celery_app.backend.client if hasattr(celery_app.backend, 'client') else None
+        
+        expired_count = 0
+        retention_hours = 24  # Keep task results for 24 hours
+        cutoff_timestamp = (datetime.now() - timedelta(hours=retention_hours)).timestamp()
+        
+        if redis_client:
+            try:
+                # Get all Celery result keys
+                pattern = f"{celery_app.backend.key_prefix or 'celery-task-meta-'}*"
+                task_keys = redis_client.keys(pattern)
+                
+                for key in task_keys:
+                    try:
+                        # Get task result metadata
+                        task_data = redis_client.get(key)
+                        if task_data:
+                            import json
+                            try:
+                                result_data = json.loads(task_data.decode('utf-8'))
+                                task_timestamp = result_data.get('date_done')
+                                
+                                # Parse timestamp and check if expired
+                                if task_timestamp:
+                                    from datetime import datetime
+                                    if isinstance(task_timestamp, str):
+                                        task_time = datetime.fromisoformat(task_timestamp.replace('Z', '+00:00'))
+                                    else:
+                                        task_time = datetime.fromtimestamp(task_timestamp)
+                                    
+                                    if task_time.timestamp() < cutoff_timestamp:
+                                        redis_client.delete(key)
+                                        expired_count += 1
+                                        
+                            except (json.JSONDecodeError, ValueError):
+                                # If we can't parse the data, it might be corrupted, so delete it
+                                redis_client.delete(key)
+                                expired_count += 1
+                                
+                    except Exception as e:
+                        logger.warning(f"Error processing task key {key}: {e}")
+                        
+                logger.info(f"Cleaned up {expired_count} expired task results from Redis")
+                
+            except Exception as e:
+                logger.warning(f"Redis cleanup failed, using basic approach: {e}")
+                # Fallback: delete all task results older than the pattern suggests
+                try:
+                    task_keys = redis_client.keys(f"celery-task-meta-*")
+                    for key in task_keys:
+                        # Simple time-based cleanup without parsing JSON
+                        ttl = redis_client.ttl(key)
+                        if ttl == -1:  # No expiration set
+                            redis_client.expire(key, 3600)  # Set 1 hour expiration
+                            expired_count += 1
+                    
+                    logger.info(f"Applied expiration to {expired_count} task results")
+                except Exception as e2:
+                    logger.error(f"Fallback Redis cleanup also failed: {e2}")
+                    expired_count = 0
+        else:
+            logger.warning("No Redis client available for task cleanup")
+            expired_count = 0
+        
+        return expired_count
+        
+    except ImportError:
+        logger.warning("Redis dependencies not available for task cleanup")
+        return 0
+    except Exception as e:
+        logger.error(f"Task cleanup failed: {str(e)}")
+        return 0
 
 def _cleanup_temp_files() -> int:
     """Clean up temporary files older than 24 hours."""
@@ -510,11 +582,80 @@ def _archive_old_logs() -> int:
 def _cleanup_orphaned_data_files() -> int:
     """Clean up orphaned data files without database references."""
     
-    # This would check database for file references and remove orphaned files
-    # Mock cleanup count
-    orphaned_count = 25
-    logger.info(f"Cleaned up {orphaned_count} orphaned data files")
-    return orphaned_count
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy import select
+        from app.core.database import AsyncSessionFactory
+        
+        async def cleanup_orphaned_files():
+            orphaned_count = 0
+            data_dirs = ['/uploads', '/data', '/exports', '/reports']
+            
+            async with AsyncSessionFactory() as session:
+                for data_dir in data_dirs:
+                    if not os.path.exists(data_dir):
+                        continue
+                    
+                    for root, dirs, files in os.walk(data_dir):
+                        for filename in files:
+                            file_path = os.path.join(root, filename)
+                            
+                            try:
+                                # Check if file is referenced in database
+                                # This is a simplified check - in production you'd check multiple tables
+                                file_referenced = False
+                                
+                                # Check pipeline executions for file references
+                                try:
+                                    from app.models.pipeline import PipelineExecution
+                                    result = await session.execute(
+                                        select(PipelineExecution.id)
+                                        .where(PipelineExecution.execution_log.like(f'%{filename}%'))
+                                        .limit(1)
+                                    )
+                                    if result.scalar_one_or_none():
+                                        file_referenced = True
+                                except ImportError:
+                                    pass
+                                
+                                # Check if file is too recent (less than 24 hours old)
+                                file_age = datetime.now() - datetime.fromtimestamp(os.path.getmtime(file_path))
+                                if file_age < timedelta(hours=24):
+                                    file_referenced = True  # Don't delete recent files
+                                
+                                # Check if file is too large (might be important)
+                                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+                                if file_size_mb > 100:  # Files larger than 100MB
+                                    file_referenced = True  # Don't auto-delete large files
+                                
+                                # Delete orphaned file if not referenced and meets criteria
+                                if not file_referenced and file_age > timedelta(days=7):
+                                    os.remove(file_path)
+                                    orphaned_count += 1
+                                    logger.info(f"Removed orphaned file: {file_path}")
+                                
+                            except (OSError, PermissionError) as e:
+                                logger.warning(f"Could not process file {file_path}: {e}")
+                            except Exception as e:
+                                logger.warning(f"Error checking file {file_path}: {e}")
+                
+                return orphaned_count
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            orphaned_count = loop.run_until_complete(cleanup_orphaned_files())
+            logger.info(f"Cleaned up {orphaned_count} orphaned data files")
+            return orphaned_count
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to cleanup orphaned files: {str(e)}")
+        # Return 0 on error to avoid false reporting
+        return 0
 
 def _calculate_space_freed(temp_files: int, log_files: int, orphaned_files: int) -> float:
     """Calculate approximate space freed in MB."""
@@ -536,20 +677,62 @@ def _check_database_health() -> Dict[str, Any]:
     """Check database connectivity and performance."""
     
     try:
-        # Mock database health check
-        # In production, would test actual database connection
-        return {
-            "status": "healthy",
-            "connection_time_ms": 45,
-            "active_connections": 12,
-            "max_connections": 100,
-            "query_performance": "good",
-            "last_backup": "2024-01-15T02:00:00Z"
-        }
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from sqlalchemy import text, select
+        from app.core.database import AsyncSessionFactory
+        import time
+        
+        async def check_db_health():
+            start_time = time.time()
+            
+            async with AsyncSessionFactory() as session:
+                # Test basic connectivity
+                await session.execute(text("SELECT 1"))
+                
+                # Get connection stats
+                conn_stats = await session.execute(
+                    text("""
+                        SELECT 
+                            (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max_connections,
+                            (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
+                            (SELECT datname FROM pg_database WHERE datname = current_database()) as database_name
+                    """)
+                )
+                stats = conn_stats.first()
+                
+                # Check query performance
+                perf_start = time.time()
+                await session.execute(text("SELECT count(*) FROM information_schema.tables"))
+                query_time = (time.time() - perf_start) * 1000
+                
+                connection_time_ms = (time.time() - start_time) * 1000
+                
+                return {
+                    "status": "healthy",
+                    "connection_time_ms": round(connection_time_ms, 2),
+                    "active_connections": stats.active_connections if stats else 0,
+                    "max_connections": stats.max_connections if stats else 100,
+                    "query_performance": "good" if query_time < 100 else "slow",
+                    "query_time_ms": round(query_time, 2),
+                    "database_name": stats.database_name if stats else "unknown",
+                    "timestamp": datetime.now().isoformat()
+                }
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(check_db_health())
+        finally:
+            loop.close()
+            
     except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
         return {
             "status": "unhealthy",
-            "error": str(e)
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
         }
 
 def _check_redis_health() -> Dict[str, Any]:
@@ -576,37 +759,187 @@ def _check_filesystem_health() -> Dict[str, Any]:
     """Check file system disk usage and health."""
     
     try:
-        # Mock filesystem health check
+        import psutil
+        
+        # Get disk usage for root partition
+        disk_usage = psutil.disk_usage('/')
+        
+        total_gb = disk_usage.total / (1024**3)
+        free_gb = disk_usage.free / (1024**3)
+        used_gb = disk_usage.used / (1024**3)
+        usage_percent = (used_gb / total_gb) * 100
+        
+        # Check specific directories if they exist
+        temp_size_mb = 0
+        uploads_size_gb = 0
+        
+        # Check temp directory size
+        temp_dirs = ['/tmp', '/var/tmp']
+        for temp_dir in temp_dirs:
+            if os.path.exists(temp_dir):
+                try:
+                    temp_size = sum(
+                        os.path.getsize(os.path.join(dirpath, filename))
+                        for dirpath, dirnames, filenames in os.walk(temp_dir)
+                        for filename in filenames
+                    )
+                    temp_size_mb += temp_size / (1024**2)
+                except (OSError, PermissionError):
+                    pass
+        
+        # Check uploads directory size if it exists
+        uploads_dir = '/uploads'
+        if os.path.exists(uploads_dir):
+            try:
+                uploads_size = sum(
+                    os.path.getsize(os.path.join(dirpath, filename))
+                    for dirpath, dirnames, filenames in os.walk(uploads_dir)
+                    for filename in filenames
+                )
+                uploads_size_gb = uploads_size / (1024**3)
+            except (OSError, PermissionError):
+                pass
+        
+        # Determine health status
+        status = "healthy"
+        if usage_percent > 90:
+            status = "critical"
+        elif usage_percent > 80:
+            status = "warning"
+        
         return {
-            "status": "healthy",
-            "disk_usage_percent": 65.2,
-            "available_space_gb": 125.8,
-            "total_space_gb": 360.0,
-            "temp_directory_size_mb": 450.2,
-            "uploads_directory_size_gb": 12.3
+            "status": status,
+            "disk_usage_percent": round(usage_percent, 1),
+            "available_space_gb": round(free_gb, 1),
+            "total_space_gb": round(total_gb, 1),
+            "used_space_gb": round(used_gb, 1),
+            "temp_directory_size_mb": round(temp_size_mb, 1),
+            "uploads_directory_size_gb": round(uploads_size_gb, 1),
+            "timestamp": datetime.now().isoformat()
         }
+        
+    except ImportError:
+        logger.warning("psutil not available for filesystem checks, using basic checks")
+        try:
+            # Fallback to basic stat check
+            stat = os.statvfs('/')
+            total_space = stat.f_frsize * stat.f_blocks / (1024**3)
+            available_space = stat.f_frsize * stat.f_bavail / (1024**3)
+            usage_percent = ((total_space - available_space) / total_space) * 100
+            
+            return {
+                "status": "healthy" if usage_percent < 80 else "warning",
+                "disk_usage_percent": round(usage_percent, 1),
+                "available_space_gb": round(available_space, 1),
+                "total_space_gb": round(total_space, 1),
+                "temp_directory_size_mb": 0,
+                "uploads_directory_size_gb": 0,
+                "note": "Limited filesystem info available",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
     except Exception as e:
         return {
             "status": "unhealthy",
-            "error": str(e)
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
         }
 
 def _check_memory_usage() -> Dict[str, Any]:
     """Check system memory usage."""
     
     try:
-        # Mock memory health check
+        import psutil
+        
+        # Get memory statistics
+        memory = psutil.virtual_memory()
+        swap = psutil.swap_memory()
+        
+        total_gb = memory.total / (1024**3)
+        available_gb = memory.available / (1024**3)
+        used_gb = memory.used / (1024**3)
+        usage_percent = memory.percent
+        
+        swap_total_gb = swap.total / (1024**3) if swap.total > 0 else 0
+        swap_used_gb = swap.used / (1024**3) if swap.used > 0 else 0
+        swap_percent = swap.percent if swap.total > 0 else 0
+        
+        # Determine health status
+        status = "healthy"
+        if usage_percent > 90:
+            status = "critical"
+        elif usage_percent > 80:
+            status = "warning"
+        
         return {
-            "status": "healthy",
-            "memory_usage_percent": 72.5,
-            "available_memory_gb": 2.8,
-            "total_memory_gb": 8.0,
-            "swap_usage_percent": 15.2
+            "status": status,
+            "memory_usage_percent": round(usage_percent, 1),
+            "available_memory_gb": round(available_gb, 1),
+            "used_memory_gb": round(used_gb, 1),
+            "total_memory_gb": round(total_gb, 1),
+            "swap_usage_percent": round(swap_percent, 1),
+            "swap_total_gb": round(swap_total_gb, 1),
+            "swap_used_gb": round(swap_used_gb, 1),
+            "buffers_gb": round(getattr(memory, 'buffers', 0) / (1024**3), 1),
+            "cached_gb": round(getattr(memory, 'cached', 0) / (1024**3), 1),
+            "timestamp": datetime.now().isoformat()
         }
+        
+    except ImportError:
+        logger.warning("psutil not available for memory checks, using fallback")
+        try:
+            # Basic fallback using /proc/meminfo on Linux
+            if os.path.exists('/proc/meminfo'):
+                with open('/proc/meminfo', 'r') as f:
+                    meminfo = f.read()
+                
+                mem_total = 0
+                mem_available = 0
+                
+                for line in meminfo.split('\n'):
+                    if line.startswith('MemTotal:'):
+                        mem_total = int(line.split()[1]) * 1024  # Convert KB to bytes
+                    elif line.startswith('MemAvailable:'):
+                        mem_available = int(line.split()[1]) * 1024  # Convert KB to bytes
+                
+                if mem_total > 0:
+                    usage_percent = ((mem_total - mem_available) / mem_total) * 100
+                    total_gb = mem_total / (1024**3)
+                    available_gb = mem_available / (1024**3)
+                    
+                    return {
+                        "status": "healthy" if usage_percent < 80 else "warning",
+                        "memory_usage_percent": round(usage_percent, 1),
+                        "available_memory_gb": round(available_gb, 1),
+                        "total_memory_gb": round(total_gb, 1),
+                        "swap_usage_percent": 0,
+                        "note": "Limited memory info available",
+                        "timestamp": datetime.now().isoformat()
+                    }
+            
+            # If all else fails, return unknown status
+            return {
+                "status": "unknown",
+                "error": "Memory information not available on this system",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
     except Exception as e:
         return {
             "status": "unhealthy",
-            "error": str(e)
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
         }
 
 def _check_queue_health() -> Dict[str, Any]:

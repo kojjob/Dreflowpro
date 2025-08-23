@@ -191,14 +191,61 @@ async def link_social_account(
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
     """Link a social account to existing user account."""
-    # This endpoint would be used to add additional OAuth providers to an existing account
-    # Implementation would be similar to the callback but would link to existing user
-    # For now, return a placeholder
-    
-    return {
-        "message": f"Social account linking for {provider} is not yet implemented",
-        "user_id": str(current_user.id)
-    }
+    try:
+        # Validate provider
+        OAuthService.get_provider_config(provider)
+        
+        # Exchange authorization code for token
+        token_data = await OAuthService.exchange_code_for_token(
+            provider=provider,
+            code=request.code,
+            redirect_uri=request.redirect_uri
+        )
+        
+        # Get user info from provider
+        user_info = await OAuthService.get_user_info(
+            provider=provider,
+            access_token=token_data["access_token"]
+        )
+        
+        # Check if this social account is already linked to another user
+        existing_account = await OAuthService.get_social_account_by_provider_id(
+            db=db,
+            provider=provider,
+            provider_id=user_info["id"]
+        )
+        
+        if existing_account and existing_account.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This social account is already linked to another user"
+            )
+        
+        # Link the social account
+        social_account = await OAuthService.link_social_account(
+            db=db,
+            user_id=current_user.id,
+            provider=provider,
+            token_data=token_data,
+            user_info=user_info
+        )
+        
+        logger.info(f"Social account linked: user_id={current_user.id}, provider={provider}")
+        
+        return {
+            "message": f"{provider.title()} account linked successfully",
+            "account_id": str(social_account.id),
+            "provider_email": user_info.get("email")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error linking social account: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to link social account"
+        )
 
 
 @router.delete("/{provider}/unlink")

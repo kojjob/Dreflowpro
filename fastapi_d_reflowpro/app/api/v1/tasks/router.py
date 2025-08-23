@@ -1,7 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import Dict, Any, List, Optional
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
+import numpy as np
+from sqlalchemy import select, func, and_, desc
+from sqlalchemy.orm import selectinload
+from app.core.database import AsyncSessionFactory
+from app.models.pipeline import PipelineExecution, ExecutionStatus
+from app.models.user import User
 
 from app.workers.celery_app import celery_app
 from app.workers import (
@@ -15,6 +21,33 @@ from app.core.deps import get_current_user
 from app.schemas.auth import UserProfile
 
 router = APIRouter(prefix="/tasks", tags=["Background Tasks"])
+
+
+async def _get_processing_stats(session, since_date):
+    """Get data processing statistics from database."""
+    try:
+        # Get aggregated stats for records processing
+        stats_query = select(
+            func.coalesce(func.sum(PipelineExecution.rows_processed), 0).label('total_processed'),
+            func.coalesce(func.sum(PipelineExecution.rows_successful), 0).label('total_successful'),
+            func.coalesce(func.sum(PipelineExecution.rows_failed), 0).label('total_failed')
+        ).where(PipelineExecution.created_at >= since_date)
+        
+        result = await session.execute(stats_query)
+        row = result.first()
+        
+        return {
+            "total_records_processed": int(row.total_processed) if row.total_processed else 0,
+            "successful_records": int(row.total_successful) if row.total_successful else 0,
+            "failed_records": int(row.total_failed) if row.total_failed else 0
+        }
+    except Exception as e:
+        return {
+            "total_records_processed": 0,
+            "successful_records": 0,
+            "failed_records": 0,
+            "error": str(e)
+        }
 
 @router.get("/status", response_model=Dict[str, Any])
 async def get_tasks_status(current_user: UserProfile = Depends(get_current_user)):
@@ -473,29 +506,90 @@ async def get_task_history(
     """Get task execution history."""
     
     try:
-        # This would typically query a database for task history
-        # For now, returning mock data
-        
-        mock_history = []
-        for i in range(limit):
-            task_id = f"task_{i + offset}"
-            mock_history.append({
-                "task_id": task_id,
-                "task_name": f"pipeline.execute",
-                "status": "completed" if i % 4 != 3 else "failed",
-                "started_at": datetime.now().isoformat(),
-                "completed_at": datetime.now().isoformat(),
-                "duration_seconds": 45.2,
-                "user_id": current_user.id
-            })
-        
-        return {
-            "tasks": mock_history,
-            "total": 500,  # Mock total
-            "limit": limit,
-            "offset": offset,
-            "has_more": offset + limit < 500
-        }
+        async with AsyncSessionFactory() as session:
+            # Build query for task history from pipeline executions
+            query = select(PipelineExecution).options(
+                selectinload(PipelineExecution.pipeline),
+                selectinload(PipelineExecution.started_by)
+            ).order_by(desc(PipelineExecution.created_at))
+            
+            # Apply status filter if provided
+            if status_filter:
+                if status_filter.lower() == 'completed':
+                    query = query.where(PipelineExecution.status == ExecutionStatus.COMPLETED)
+                elif status_filter.lower() == 'failed':
+                    query = query.where(PipelineExecution.status == ExecutionStatus.FAILED)
+                elif status_filter.lower() == 'running':
+                    query = query.where(PipelineExecution.status == ExecutionStatus.RUNNING)
+                elif status_filter.lower() == 'pending':
+                    query = query.where(PipelineExecution.status == ExecutionStatus.PENDING)
+            
+            # Get total count for pagination
+            count_query = select(func.count(PipelineExecution.id))
+            if status_filter:
+                if status_filter.lower() == 'completed':
+                    count_query = count_query.where(PipelineExecution.status == ExecutionStatus.COMPLETED)
+                elif status_filter.lower() == 'failed':
+                    count_query = count_query.where(PipelineExecution.status == ExecutionStatus.FAILED)
+                elif status_filter.lower() == 'running':
+                    count_query = count_query.where(PipelineExecution.status == ExecutionStatus.RUNNING)
+                elif status_filter.lower() == 'pending':
+                    count_query = count_query.where(PipelineExecution.status == ExecutionStatus.PENDING)
+            
+            total_result = await session.execute(count_query)
+            total_count = total_result.scalar() or 0
+            
+            # Apply pagination
+            query = query.offset(offset).limit(limit)
+            
+            # Execute query
+            result = await session.execute(query)
+            executions = result.scalars().all()
+            
+            # Convert to task history format
+            task_history = []
+            for execution in executions:
+                duration_seconds = None
+                if execution.started_at and execution.completed_at:
+                    duration_seconds = (execution.completed_at - execution.started_at).total_seconds()
+                
+                # Map execution status to task status
+                task_status = "unknown"
+                if execution.status == ExecutionStatus.COMPLETED:
+                    task_status = "completed"
+                elif execution.status == ExecutionStatus.FAILED:
+                    task_status = "failed"
+                elif execution.status == ExecutionStatus.RUNNING:
+                    task_status = "running"
+                elif execution.status == ExecutionStatus.PENDING:
+                    task_status = "pending"
+                elif execution.status == ExecutionStatus.CANCELLED:
+                    task_status = "cancelled"
+                
+                task_history.append({
+                    "task_id": str(execution.id),
+                    "task_name": f"pipeline.execute.{execution.pipeline.name if execution.pipeline else 'unknown'}",
+                    "status": task_status,
+                    "started_at": execution.started_at.isoformat() if execution.started_at else None,
+                    "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+                    "duration_seconds": round(duration_seconds, 2) if duration_seconds else None,
+                    "user_id": execution.started_by_id,
+                    "pipeline_id": str(execution.pipeline_id),
+                    "rows_processed": execution.rows_processed,
+                    "rows_successful": execution.rows_successful,
+                    "rows_failed": execution.rows_failed,
+                    "error_log": execution.error_log[:200] + "..." if execution.error_log and len(execution.error_log) > 200 else execution.error_log,
+                    "trigger_type": execution.trigger_type
+                })
+            
+            return {
+                "tasks": task_history,
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + limit < total_count,
+                "status_filter": status_filter
+            }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get task history: {str(e)}")
@@ -505,40 +599,146 @@ async def get_task_metrics(current_user: UserProfile = Depends(get_current_user)
     """Get task execution metrics and statistics."""
     
     try:
-        # Mock metrics - in production, this would query actual metrics
-        return {
-            "timestamp": datetime.now().isoformat(),
-            "daily_stats": {
-                "total_tasks": 156,
-                "successful_tasks": 142,
-                "failed_tasks": 14,
-                "success_rate": 91.0
-            },
-            "weekly_stats": {
-                "total_tasks": 1024,
-                "successful_tasks": 945,
-                "failed_tasks": 79,
-                "success_rate": 92.3
-            },
-            "task_types": {
-                "pipeline_execution": 45,
-                "data_processing": 32,
-                "report_generation": 28,
-                "notifications": 51
-            },
-            "average_execution_times": {
-                "pipeline_execution": 120.5,
-                "data_processing": 85.2,
-                "report_generation": 180.7,
-                "notifications": 5.1
-            },
-            "queue_performance": {
-                "pipelines": {"avg_wait_time": 12.3, "throughput": 0.85},
-                "data_processing": {"avg_wait_time": 8.7, "throughput": 1.2},
-                "reports": {"avg_wait_time": 45.2, "throughput": 0.35},
-                "notifications": {"avg_wait_time": 2.1, "throughput": 5.2}
+        async with AsyncSessionFactory() as session:
+            now = datetime.now()
+            day_ago = now - timedelta(days=1)
+            week_ago = now - timedelta(days=7)
+            
+            # Daily stats
+            daily_query = select(
+                func.count(PipelineExecution.id).label('total'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.COMPLETED).label('completed'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.FAILED).label('failed'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.RUNNING).label('running'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.PENDING).label('pending')
+            ).where(PipelineExecution.created_at >= day_ago)
+            
+            daily_result = await session.execute(daily_query)
+            daily_row = daily_result.first()
+            
+            daily_total = daily_row.total or 0
+            daily_completed = daily_row.completed or 0
+            daily_failed = daily_row.failed or 0
+            daily_running = daily_row.running or 0
+            daily_pending = daily_row.pending or 0
+            daily_success_rate = (daily_completed / daily_total * 100) if daily_total > 0 else 0
+            
+            # Weekly stats
+            weekly_query = select(
+                func.count(PipelineExecution.id).label('total'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.COMPLETED).label('completed'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.FAILED).label('failed'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.RUNNING).label('running'),
+                func.count().filter(PipelineExecution.status == ExecutionStatus.PENDING).label('pending')
+            ).where(PipelineExecution.created_at >= week_ago)
+            
+            weekly_result = await session.execute(weekly_query)
+            weekly_row = weekly_result.first()
+            
+            weekly_total = weekly_row.total or 0
+            weekly_completed = weekly_row.completed or 0
+            weekly_failed = weekly_row.failed or 0
+            weekly_running = weekly_row.running or 0
+            weekly_pending = weekly_row.pending or 0
+            weekly_success_rate = (weekly_completed / weekly_total * 100) if weekly_total > 0 else 0
+            
+            # Task types (based on trigger type)
+            task_types_query = select(
+                PipelineExecution.trigger_type,
+                func.count(PipelineExecution.id).label('count')
+            ).where(
+                PipelineExecution.created_at >= day_ago
+            ).group_by(PipelineExecution.trigger_type)
+            
+            task_types_result = await session.execute(task_types_query)
+            task_types_raw = task_types_result.fetchall()
+            
+            task_types = {}
+            for row in task_types_raw:
+                trigger_type = row.trigger_type or 'manual'
+                if trigger_type == 'manual':
+                    task_types['pipeline_execution'] = row.count
+                elif trigger_type == 'scheduled':
+                    task_types['scheduled_tasks'] = row.count
+                elif trigger_type == 'webhook':
+                    task_types['webhook_triggers'] = row.count
+                else:
+                    task_types[trigger_type] = row.count
+            
+            # Average execution times
+            execution_times_query = select(
+                PipelineExecution.trigger_type,
+                func.avg(
+                    func.extract(
+                        'epoch',
+                        PipelineExecution.completed_at - PipelineExecution.started_at
+                    )
+                ).label('avg_duration')
+            ).where(
+                and_(
+                    PipelineExecution.started_at.isnot(None),
+                    PipelineExecution.completed_at.isnot(None),
+                    PipelineExecution.created_at >= week_ago
+                )
+            ).group_by(PipelineExecution.trigger_type)
+            
+            exec_times_result = await session.execute(execution_times_query)
+            exec_times_raw = exec_times_result.fetchall()
+            
+            average_execution_times = {}
+            for row in exec_times_raw:
+                trigger_type = row.trigger_type or 'manual'
+                avg_seconds = row.avg_duration or 0
+                
+                if trigger_type == 'manual':
+                    average_execution_times['pipeline_execution'] = round(avg_seconds, 1)
+                elif trigger_type == 'scheduled':
+                    average_execution_times['scheduled_tasks'] = round(avg_seconds, 1)
+                elif trigger_type == 'webhook':
+                    average_execution_times['webhook_triggers'] = round(avg_seconds, 1)
+                else:
+                    average_execution_times[trigger_type] = round(avg_seconds, 1)
+            
+            # Calculate queue performance metrics (simplified)
+            # In a real implementation, this would come from Celery monitoring
+            queue_performance = {}
+            for task_type in ['pipelines', 'data_processing', 'reports', 'notifications']:
+                # Calculate throughput as tasks per hour
+                task_count = task_types.get(f"{task_type}_tasks", task_types.get(task_type, daily_total // 4))
+                throughput = round(task_count / 24, 2)  # tasks per hour over last 24h
+                
+                # Estimate average wait time based on throughput and queue size
+                estimated_queue_size = max(1, int(throughput * 0.1))  # 10% of hourly throughput
+                avg_wait_time = round(estimated_queue_size / max(throughput, 0.1) * 60, 1)  # minutes
+                
+                queue_performance[task_type] = {
+                    "avg_wait_time": avg_wait_time,
+                    "throughput": throughput
+                }
+            
+            return {
+                "timestamp": now.isoformat(),
+                "daily_stats": {
+                    "total_tasks": daily_total,
+                    "successful_tasks": daily_completed,
+                    "failed_tasks": daily_failed,
+                    "running_tasks": daily_running,
+                    "pending_tasks": daily_pending,
+                    "success_rate": round(daily_success_rate, 1)
+                },
+                "weekly_stats": {
+                    "total_tasks": weekly_total,
+                    "successful_tasks": weekly_completed,
+                    "failed_tasks": weekly_failed,
+                    "running_tasks": weekly_running,
+                    "pending_tasks": weekly_pending,
+                    "success_rate": round(weekly_success_rate, 1)
+                },
+                "task_types": task_types,
+                "average_execution_times": average_execution_times,
+                "queue_performance": queue_performance,
+                "data_processing_stats": await _get_processing_stats(session, day_ago)
             }
-        }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get task metrics: {str(e)}")
