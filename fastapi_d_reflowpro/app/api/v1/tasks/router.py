@@ -12,12 +12,12 @@ from app.workers import (
     maintenance_tasks
 )
 from app.core.deps import get_current_user
-from app.schemas.auth import User
+from app.schemas.auth import UserProfile
 
 router = APIRouter(prefix="/tasks", tags=["Background Tasks"])
 
 @router.get("/status", response_model=Dict[str, Any])
-async def get_tasks_status(current_user: User = Depends(get_current_user)):
+async def get_tasks_status(current_user: UserProfile = Depends(get_current_user)):
     """Get overall status of background task system."""
     
     try:
@@ -56,7 +56,7 @@ async def get_tasks_status(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
 
 @router.get("/task/{task_id}", response_model=Dict[str, Any])
-async def get_task_status(task_id: str, current_user: User = Depends(get_current_user)):
+async def get_task_status(task_id: str, current_user: UserProfile = Depends(get_current_user)):
     """Get status of a specific task."""
     
     try:
@@ -77,7 +77,7 @@ async def get_task_status(task_id: str, current_user: User = Depends(get_current
         raise HTTPException(status_code=500, detail=f"Failed to get task {task_id}: {str(e)}")
 
 @router.delete("/task/{task_id}")
-async def cancel_task(task_id: str, current_user: User = Depends(get_current_user)):
+async def cancel_task(task_id: str, current_user: UserProfile = Depends(get_current_user)):
     """Cancel a running or pending task."""
     
     try:
@@ -98,7 +98,7 @@ async def cancel_task(task_id: str, current_user: User = Depends(get_current_use
 async def execute_pipeline(
     pipeline_id: int,
     execution_params: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Execute a data pipeline in background."""
     
@@ -117,7 +117,7 @@ async def execute_pipeline(
         raise HTTPException(status_code=500, detail=f"Failed to start pipeline execution: {str(e)}")
 
 @router.post("/pipelines/{pipeline_id}/validate", response_model=Dict[str, Any])
-async def validate_pipeline(pipeline_id: int, current_user: User = Depends(get_current_user)):
+async def validate_pipeline(pipeline_id: int, current_user: UserProfile = Depends(get_current_user)):
     """Validate pipeline configuration."""
     
     try:
@@ -137,7 +137,7 @@ async def validate_pipeline(pipeline_id: int, current_user: User = Depends(get_c
 async def test_pipeline(
     pipeline_id: int,
     sample_size: int = 100,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Run pipeline test with sample data."""
     
@@ -162,7 +162,7 @@ async def process_file(
     file_path: str,
     file_type: str,
     processing_options: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Process uploaded data file."""
     
@@ -186,7 +186,7 @@ async def process_file(
 async def transform_dataset(
     dataset_id: str,
     transformations: List[Dict[str, Any]],
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Apply transformations to dataset."""
     
@@ -208,7 +208,7 @@ async def transform_dataset(
 async def validate_schema(
     dataset_id: str,
     expected_schema: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Validate dataset against expected schema."""
     
@@ -231,7 +231,7 @@ async def validate_schema(
 async def generate_executive_report(
     dataset_id: str,
     report_config: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Generate executive-level PDF report."""
     
@@ -255,7 +255,7 @@ async def generate_executive_report(
 async def generate_analyst_report(
     dataset_id: str,
     report_config: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Generate detailed analyst report."""
     
@@ -279,7 +279,7 @@ async def generate_analyst_report(
 async def generate_presentation(
     dataset_id: str,
     presentation_config: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Generate PowerPoint presentation."""
     
@@ -303,7 +303,7 @@ async def generate_presentation(
 async def export_dashboard(
     dashboard_id: str,
     export_config: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Export dashboard to static format."""
     
@@ -326,7 +326,7 @@ async def export_dashboard(
 @router.post("/reports/batch", response_model=Dict[str, Any])
 async def batch_generate_reports(
     report_requests: List[Dict[str, Any]],
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Generate multiple reports in batch."""
     
@@ -350,7 +350,7 @@ async def send_email(
     recipient: str,
     subject: str,
     content: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Send email notification."""
     
@@ -371,7 +371,7 @@ async def send_email(
 @router.post("/notifications/maintenance", response_model=Dict[str, Any])
 async def send_maintenance_notification(
     maintenance_details: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Send system maintenance notification to all users."""
     
@@ -391,7 +391,7 @@ async def send_maintenance_notification(
 # Maintenance Tasks Endpoints
 
 @router.post("/maintenance/cleanup", response_model=Dict[str, Any])
-async def trigger_cleanup(current_user: User = Depends(get_current_user)):
+async def trigger_cleanup(current_user: UserProfile = Depends(get_current_user)):
     """Trigger system cleanup manually."""
     
     try:
@@ -407,7 +407,7 @@ async def trigger_cleanup(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to start system cleanup: {str(e)}")
 
 @router.post("/maintenance/health-check", response_model=Dict[str, Any])
-async def trigger_health_check(current_user: User = Depends(get_current_user)):
+async def trigger_health_check(current_user: UserProfile = Depends(get_current_user)):
     """Trigger comprehensive health check."""
     
     try:
@@ -425,7 +425,7 @@ async def trigger_health_check(current_user: User = Depends(get_current_user)):
 @router.post("/maintenance/backup", response_model=Dict[str, Any])
 async def trigger_backup(
     backup_config: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Trigger data backup."""
     
@@ -445,7 +445,7 @@ async def trigger_backup(
 @router.post("/maintenance/optimize-database", response_model=Dict[str, Any])
 async def trigger_database_optimization(
     optimization_config: Optional[Dict[str, Any]] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Trigger database optimization."""
     
@@ -468,7 +468,7 @@ async def get_task_history(
     limit: int = 50,
     offset: int = 0,
     status_filter: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: UserProfile = Depends(get_current_user)
 ):
     """Get task execution history."""
     
@@ -501,7 +501,7 @@ async def get_task_history(
         raise HTTPException(status_code=500, detail=f"Failed to get task history: {str(e)}")
 
 @router.get("/metrics", response_model=Dict[str, Any])
-async def get_task_metrics(current_user: User = Depends(get_current_user)):
+async def get_task_metrics(current_user: UserProfile = Depends(get_current_user)):
     """Get task execution metrics and statistics."""
     
     try:

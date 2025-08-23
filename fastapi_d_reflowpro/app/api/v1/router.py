@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from .auth import router as auth_router
 from .connectors import router as connectors_router
-from .tasks import router as tasks_router
+from .tasks.router import router as tasks_router
 
 # Create the main v1 router
 router = APIRouter(prefix="/api/v1")

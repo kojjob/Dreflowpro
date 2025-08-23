@@ -1,7 +1,7 @@
 from celery import current_task
 from app.workers.celery_app import celery_app
 from app.core.database import get_session
-from app.models.pipeline import Pipeline, PipelineExecution
+from app.models.pipeline import ETLPipeline, PipelineExecution
 from app.services.etl_engine.pipeline_executor import PipelineExecutor
 from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
