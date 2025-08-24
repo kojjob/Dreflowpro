@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, Dict
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import secrets
+import uuid
 
 from .config import settings
 from ..models.user import User
@@ -29,70 +30,148 @@ class SecurityUtils:
     def generate_api_key() -> str:
         """Generate a secure API key."""
         return secrets.token_urlsafe(32)
-
-# JWT Token utilities
-class JWTManager:
+    
     @staticmethod
+    def generate_verification_token(user_id: Union[str, uuid.UUID]) -> str:
+        """Generate email verification token."""
+        payload = {
+            "sub": str(user_id),
+            "type": "email_verification",
+            "exp": datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry
+        }
+        return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    
+    @staticmethod
+    def verify_verification_token(token: str) -> Optional[str]:
+        """Verify email verification token and return user ID."""
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            if payload.get("type") != "email_verification":
+                return None
+            return payload.get("sub")
+        except JWTError:
+            return None
+    
+    @staticmethod
+    def generate_password_reset_token(user_id: Union[str, uuid.UUID]) -> str:
+        """Generate password reset token."""
+        payload = {
+            "sub": str(user_id),
+            "type": "password_reset",
+            "exp": datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+        }
+        return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    
+    @staticmethod
+    def verify_password_reset_token(token: str) -> Optional[str]:
+        """Verify password reset token and return user ID."""
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            if payload.get("type") != "password_reset":
+                return None
+            return payload.get("sub")
+        except JWTError:
+            return None
+
+# JWT Token utilities with enhanced security
+class JWTManager:
+    def __init__(self):
+        self.algorithm = settings.ALGORITHM
+        self.secret_key = settings.SECRET_KEY
+    
     def create_access_token(
-        data: dict, 
+        self, 
+        subject: str,
+        extra_claims: Optional[Dict[str, Any]] = None,
         expires_delta: Optional[timedelta] = None
     ) -> str:
-        """Create a JWT access token."""
-        to_encode = data.copy()
+        """Create a JWT access token with enhanced security."""
+        now = datetime.utcnow()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = now + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(
-                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-            )
+            expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         
-        to_encode.update({"exp": expire, "type": "access"})
+        payload = {
+            "sub": subject,
+            "iat": now,
+            "exp": expire,
+            "type": "access",
+            "jti": str(uuid.uuid4())  # Unique token identifier
+        }
         
-        encoded_jwt = jwt.encode(
-            to_encode, 
-            settings.SECRET_KEY, 
-            algorithm=settings.ALGORITHM
-        )
-        return encoded_jwt
+        if extra_claims:
+            payload.update(extra_claims)
+        
+        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
-    @staticmethod
-    def create_refresh_token(data: dict) -> str:
-        """Create a JWT refresh token."""
-        to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-        to_encode.update({"exp": expire, "type": "refresh"})
+    def create_refresh_token(
+        self,
+        subject: str,
+        extra_claims: Optional[Dict[str, Any]] = None,
+        expires_delta: Optional[timedelta] = None
+    ) -> str:
+        """Create a JWT refresh token for token rotation."""
+        now = datetime.utcnow()
         
-        encoded_jwt = jwt.encode(
-            to_encode,
-            settings.SECRET_KEY,
-            algorithm=settings.ALGORITHM
-        )
-        return encoded_jwt
+        if expires_delta:
+            expire = now + expires_delta
+        else:
+            expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        
+        payload = {
+            "sub": subject,
+            "iat": now,
+            "exp": expire,
+            "type": "refresh",
+            "jti": str(uuid.uuid4())  # Unique token identifier
+        }
+        
+        if extra_claims:
+            payload.update(extra_claims)
+        
+        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
-    @staticmethod
-    def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
-        """Verify and decode a JWT token."""
+    def verify_access_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Verify and decode an access token."""
+        return self._verify_token(token, "access")
+    
+    def verify_refresh_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Verify and decode a refresh token."""
+        return self._verify_token(token, "refresh")
+    
+    def _verify_token(self, token: str, expected_type: str) -> Optional[Dict[str, Any]]:
+        """Internal method to verify and decode a JWT token."""
         try:
             payload = jwt.decode(
                 token,
-                settings.SECRET_KEY,
-                algorithms=[settings.ALGORITHM]
+                self.secret_key,
+                algorithms=[self.algorithm]
             )
             
             # Check token type
-            if payload.get("type") != token_type:
+            if payload.get("type") != expected_type:
                 return None
-                
-            # Check expiration
-            exp = payload.get("exp")
-            if exp is None or datetime.utcnow() > datetime.fromtimestamp(exp):
+            
+            # Check required fields
+            if not all(key in payload for key in ["sub", "exp", "iat", "jti"]):
                 return None
                 
             return payload
             
         except JWTError:
             return None
+    
+    @staticmethod
+    def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
+        """Legacy method for backward compatibility."""
+        manager = JWTManager()
+        if token_type == "access":
+            return manager.verify_access_token(token)
+        elif token_type == "refresh":
+            return manager.verify_refresh_token(token)
+        return None
 
 # Authentication service
 class AuthService:

@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { PREVIEW_CONFIG, API_CONFIG } from '../../config/dataConfig';
 import { apiService } from '../../services/api';
 import { PreferencesManager } from '../../utils/preferences';
+import Logger from '../../utils/logger';
 
 interface TransformationOption {
   type: string;
@@ -43,7 +44,7 @@ export default function DataUploadPage() {
           }
         }
       } catch (error) {
-        console.warn('Failed to load transformation options, using defaults:', error);
+        Logger.warn('Failed to load transformation options, using defaults:', error);
         // Fallback to default transformations
         setTransformationOptions([
           {
@@ -154,7 +155,7 @@ export default function DataUploadPage() {
       toast.success(`${transformationType} transformation completed successfully!`);
       
       // You could update the visualization with the transformed data here
-      console.log('Transformation result:', result);
+      Logger.log('Transformation result:', result);
       
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Transformation failed');

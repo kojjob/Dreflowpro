@@ -3,17 +3,15 @@
  * Centralized configuration for file upload, analysis, and visualization settings
  */
 
-// Environment-based configuration
-export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
-  timeout: parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000'),
-} as const;
+import { env, API_CONFIG, UPLOAD_CONFIG } from './env';
 
-// File upload configuration
-export const UPLOAD_CONFIG = {
-  maxFileSize: parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_SIZE || String(50 * 1024 * 1024)), // 50MB default
-  defaultPreviewRows: parseInt(process.env.NEXT_PUBLIC_DEFAULT_PREVIEW_ROWS || '100'),
-  acceptedFileTypes: (process.env.NEXT_PUBLIC_ACCEPTED_FILE_TYPES || '.csv,.xlsx,.xls,.json,.txt,.tsv').split(','),
+// Re-export validated environment configs
+export { API_CONFIG, UPLOAD_CONFIG };
+
+// File upload configuration (extended)
+export const EXTENDED_UPLOAD_CONFIG = {
+  ...UPLOAD_CONFIG,
+  defaultPreviewRows: env.getConfig().NEXT_PUBLIC_DEFAULT_PREVIEW_ROWS,
   acceptedMimeTypes: {
     'text/csv': ['.csv'],
     'application/vnd.ms-excel': ['.xls'],
@@ -25,17 +23,17 @@ export const UPLOAD_CONFIG = {
 
 // Data preview configuration
 export const PREVIEW_CONFIG = {
-  defaultRows: parseInt(process.env.NEXT_PUBLIC_PREVIEW_DEFAULT_ROWS || '50'),
-  maxRows: parseInt(process.env.NEXT_PUBLIC_PREVIEW_MAX_ROWS || '1000'),
-  tableDisplayRows: parseInt(process.env.NEXT_PUBLIC_TABLE_DISPLAY_ROWS || '20'),
-  pageSize: parseInt(process.env.NEXT_PUBLIC_PREVIEW_PAGE_SIZE || '25'),
+  defaultRows: env.getConfig().NEXT_PUBLIC_PREVIEW_DEFAULT_ROWS,
+  maxRows: env.getConfig().NEXT_PUBLIC_PREVIEW_MAX_ROWS,
+  tableDisplayRows: env.getConfig().NEXT_PUBLIC_TABLE_DISPLAY_ROWS,
+  pageSize: env.getConfig().NEXT_PUBLIC_PREVIEW_PAGE_SIZE,
   availablePageSizes: [10, 20, 25, 50, 100],
 } as const;
 
 // Visualization configuration
 export const VISUALIZATION_CONFIG = {
   defaultChartTypes: ['bar', 'pie', 'line', 'histogram'],
-  maxDataPoints: parseInt(process.env.NEXT_PUBLIC_MAX_CHART_DATA_POINTS || '1000'),
+  maxDataPoints: env.getConfig().NEXT_PUBLIC_MAX_CHART_DATA_POINTS,
   colorPalette: [
     'rgba(59, 130, 246, 0.8)',   // blue
     'rgba(16, 185, 129, 0.8)',   // green
@@ -226,8 +224,8 @@ export const TRANSFORMATION_CONFIG = {
 // Quality assessment configuration
 export const QUALITY_CONFIG = {
   scoreThresholds: {
-    good: parseInt(process.env.NEXT_PUBLIC_QUALITY_GOOD_THRESHOLD || '80'),
-    fair: parseInt(process.env.NEXT_PUBLIC_QUALITY_FAIR_THRESHOLD || '60'),
+    good: env.getConfig().NEXT_PUBLIC_QUALITY_GOOD_THRESHOLD,
+    fair: env.getConfig().NEXT_PUBLIC_QUALITY_FAIR_THRESHOLD,
   },
   assessmentMetrics: ['completeness', 'uniqueness', 'validity', 'consistency'],
 } as const;

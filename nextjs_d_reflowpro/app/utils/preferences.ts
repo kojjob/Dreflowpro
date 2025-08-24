@@ -1,4 +1,6 @@
 // User preferences management utility
+import Logger from './logger';
+
 export interface UserPreferences {
   dataPreview: {
     itemsPerPage: number;
@@ -64,7 +66,7 @@ export class PreferencesManager {
           return this.preferences;
         }
       } catch (error) {
-        console.warn('Failed to load user preferences:', error);
+        Logger.warn('Failed to load user preferences:', error);
       }
     }
 
@@ -79,7 +81,7 @@ export class PreferencesManager {
       try {
         localStorage.setItem(PREFERENCES_KEY, JSON.stringify(this.preferences));
       } catch (error) {
-        console.warn('Failed to save user preferences:', error);
+        Logger.warn('Failed to save user preferences:', error);
       }
     }
   }

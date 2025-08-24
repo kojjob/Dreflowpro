@@ -146,18 +146,22 @@ export function useMultipleRealTimeData<T extends Record<string, any>>(
           (successfulResults as any)[key] = value;
         } else {
           hasErrors = true;
-          if (onError) {
+          // Only call onError for non-network errors or if specifically requested
+          if (onError && !result.reason?.message?.includes('Failed to fetch')) {
             onError(new Error(`Failed to fetch ${key}: ${result.reason}`));
           }
         }
       });
 
       if (mountedRef.current) {
+        // Only set error if we have no successful results at all
         if (hasErrors && Object.keys(successfulResults).length === 0) {
           setError('Failed to fetch any data');
         } else {
+          // We have some data (either from API or fallback), so clear any previous errors
           setData(successfulResults as T);
           setLastUpdated(new Date());
+          setError(null);
         }
         setLoading(false);
       }

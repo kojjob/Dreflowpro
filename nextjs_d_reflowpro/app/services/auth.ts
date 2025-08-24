@@ -64,13 +64,18 @@ class AuthService {
 
   constructor() {
     this.baseUrl = API_CONFIG.baseUrl;
-    this.initializeFromStorage();
-    
-    // Re-initialize when client-side if server-side rendered
-    if (this.isBrowser() && !this.state.tokens) {
-      // Use a timeout to avoid blocking the constructor
-      setTimeout(() => this.initializeFromStorage(), 0);
-    }
+
+    // DISABLED: Skip initialization to prevent API calls
+    Logger.log('🚫 Old AuthService disabled - using AuthContext instead');
+
+    // Set a mock state to prevent errors
+    this.state = {
+      isAuthenticated: false,
+      user: null,
+      tokens: null,
+      isLoading: false,
+      error: null,
+    };
   }
 
   public static getInstance(): AuthService {
@@ -292,7 +297,7 @@ class AuthService {
       // Create mock tokens
       const mockTokens: AuthTokens = {
         access_token: this.generateMockToken(credentials.email),
-        refresh_token: 'mock_refresh_token_' + Date.now(),
+        refresh_token: 'dev_test_refresh_token_' + Date.now(),
         token_type: 'bearer',
         expires_in: 3600
       };
@@ -403,7 +408,7 @@ class AuthService {
       // Create mock tokens and auto-login
       const mockTokens: AuthTokens = {
         access_token: this.generateMockToken(data.email),
-        refresh_token: 'mock_refresh_token_' + Date.now(),
+        refresh_token: 'dev_test_refresh_token_' + Date.now(),
         token_type: 'bearer',
         expires_in: 3600
       };
@@ -442,15 +447,8 @@ class AuthService {
    * Refresh access token using refresh token
    */
   async refreshAccessToken(): Promise<AuthTokens> {
-    // Prevent multiple concurrent refresh requests
-    if (this.refreshPromise) {
-      return this.refreshPromise;
-    }
-
-    const { tokens } = this.state;
-    if (!tokens?.refresh_token) {
-      throw new Error('No refresh token available');
-    }
+    Logger.log('🚫 RefreshAccessToken disabled - using AuthContext instead');
+    throw new Error('Old AuthService disabled - use AuthContext instead');
 
     this.refreshPromise = (async () => {
       try {
@@ -727,5 +725,26 @@ class AuthService {
 }
 
 // Export singleton instance
-export const authService = AuthService.getInstance();
+// Disable the old auth service to prevent API calls
+const disabledAuthService = {
+  subscribe: (listener: (state: AuthState) => void) => {
+    // Immediately call with disabled state
+    listener({
+      isAuthenticated: false,
+      user: null,
+      tokens: null,
+      isLoading: false,
+      error: null,
+    });
+    // Return empty unsubscribe function
+    return () => {};
+  },
+  login: () => Promise.reject(new Error('Old AuthService disabled - use AuthContext instead')),
+  logout: () => Promise.resolve(),
+  getValidAccessToken: () => Promise.resolve(null),
+  refreshAccessToken: () => Promise.reject(new Error('Old AuthService disabled - use AuthContext instead')),
+  getCurrentUser: () => Promise.resolve(null),
+};
+
+export const authService = disabledAuthService as any;
 export default authService;

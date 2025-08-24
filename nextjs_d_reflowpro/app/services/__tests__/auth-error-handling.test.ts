@@ -135,8 +135,8 @@ describe('AuthService Error Handling', () => {
 
       // Test with valid tokens (mocked)
       const mockTokens = {
-        access_token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiZXhwIjoxNjk5OTk5OTk5fQ.test',
-        refresh_token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiZXhwIjoxNjk5OTk5OTk5fQ.test'
+        access_token: 'test_access_token_' + Date.now(),
+        refresh_token: 'test_refresh_token_' + Date.now()
       };
       
       authService['updateState']({

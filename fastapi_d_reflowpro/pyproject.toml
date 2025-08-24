@@ -51,6 +51,8 @@ dependencies = [
     # Utilities
     "python-slugify>=8.0.0",
     "email-validator>=2.1.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
 ]
 
 [project.optional-dependencies]
