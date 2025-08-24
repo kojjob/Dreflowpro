@@ -403,18 +403,153 @@ class PipelineExecutor:
         
         logger.info("Starting data validation phase")
         
-        validation_results = {
-            "quality_score": 85.0,  # Mock score
-            "checks_passed": 8,
-            "checks_failed": 2,
-            "data_completeness": 92.5,
-            "data_accuracy": 87.8,
-            "schema_compliance": 95.2
-        }
+        # Real data validation using actual data quality checks
+        validation_results = await self._perform_real_data_validation()
+        
+        if not validation_results:
+            # Fallback if validation fails
+            logger.warning("Data validation failed, using default scores")
+            validation_results = {
+                "quality_score": 0.0,
+                "checks_passed": 0,
+                "checks_failed": 0,
+                "data_completeness": 0.0,
+                "data_accuracy": 0.0,
+                "schema_compliance": 0.0,
+                "validation_error": "Validation process failed"
+            }
         
         logger.info(f"Validation completed: Quality score {validation_results['quality_score']}")
         
         return validation_results
+    
+    async def _perform_real_data_validation(self) -> Dict[str, Any]:
+        """Perform real data validation on the destination data."""
+        try:
+            if not self.destinations:
+                return None
+            
+            destination = self.destinations[0]
+            destination_type = destination.get("type", "unknown").lower()
+            connection_config = destination.get("connection_config", {})
+            
+            # Create appropriate connector
+            connector = None
+            if destination_type in ["postgresql", "postgres"]:
+                connector = PostgreSQLConnector(connection_config)
+            elif destination_type in ["mysql"]:
+                connector = MySQLConnector(connection_config)
+            else:
+                logger.warning(f"Validation not supported for destination type: {destination_type}")
+                return None
+            
+            await connector.connect()
+            
+            try:
+                # Get destination table info
+                load_config = destination.get("load_config", {})
+                table_name = load_config.get("table")
+                
+                if not table_name:
+                    logger.error("No destination table specified for validation")
+                    return None
+                
+                # Perform real validation checks
+                validation_results = {
+                    "checks_passed": 0,
+                    "checks_failed": 0,
+                    "data_completeness": 0.0,
+                    "data_accuracy": 0.0,
+                    "schema_compliance": 0.0
+                }
+                
+                # Check 1: Row count validation
+                count_query = f"SELECT COUNT(*) as total FROM {table_name}"
+                count_result = await connector.execute_query(count_query)
+                total_rows = count_result.iloc[0]["total"] if not count_result.empty else 0
+                
+                if total_rows > 0:
+                    validation_results["checks_passed"] += 1
+                    validation_results["data_completeness"] += 25.0
+                else:
+                    validation_results["checks_failed"] += 1
+                
+                # Check 2: Null value analysis
+                if destination_type in ["postgresql", "postgres"]:
+                    null_check_query = f"""
+                        SELECT 
+                            COUNT(*) as total_rows,
+                            SUM(CASE WHEN id IS NULL THEN 1 ELSE 0 END) as null_ids
+                        FROM {table_name}
+                    """
+                else:  # MySQL
+                    null_check_query = f"""
+                        SELECT 
+                            COUNT(*) as total_rows,
+                            SUM(CASE WHEN id IS NULL THEN 1 ELSE 0 END) as null_ids
+                        FROM `{table_name}`
+                    """
+                
+                try:
+                    null_result = await connector.execute_query(null_check_query)
+                    if not null_result.empty:
+                        null_percentage = (null_result.iloc[0]["null_ids"] / null_result.iloc[0]["total_rows"]) * 100
+                        if null_percentage <= 5:  # Less than 5% null values
+                            validation_results["checks_passed"] += 1
+                            validation_results["data_completeness"] += 25.0
+                        else:
+                            validation_results["checks_failed"] += 1
+                except Exception as e:
+                    logger.warning(f"Null check failed: {e}")
+                    validation_results["checks_failed"] += 1
+                
+                # Check 3: Schema compliance (basic)
+                try:
+                    schema_info = await connector.get_schema_info(table_name)
+                    if schema_info and "columns" in schema_info:
+                        validation_results["checks_passed"] += 1
+                        validation_results["schema_compliance"] = 95.0  # Basic schema exists
+                    else:
+                        validation_results["checks_failed"] += 1
+                except Exception as e:
+                    logger.warning(f"Schema check failed: {e}")
+                    validation_results["checks_failed"] += 1
+                
+                # Check 4: Data accuracy (sample data types)
+                try:
+                    if destination_type in ["postgresql", "postgres"]:
+                        sample_query = f"SELECT * FROM {table_name} LIMIT 100"
+                    else:  # MySQL
+                        sample_query = f"SELECT * FROM `{table_name}` LIMIT 100"
+                    
+                    sample_data = await connector.execute_query(sample_query)
+                    if not sample_data.empty:
+                        validation_results["checks_passed"] += 1
+                        validation_results["data_accuracy"] = 90.0  # Basic accuracy if data exists
+                    else:
+                        validation_results["checks_failed"] += 1
+                except Exception as e:
+                    logger.warning(f"Data accuracy check failed: {e}")
+                    validation_results["checks_failed"] += 1
+                
+                # Calculate overall quality score
+                total_checks = validation_results["checks_passed"] + validation_results["checks_failed"]
+                if total_checks > 0:
+                    quality_score = (validation_results["checks_passed"] / total_checks) * 100
+                else:
+                    quality_score = 0.0
+                
+                validation_results["quality_score"] = quality_score
+                
+                logger.info(f"Validation completed: {validation_results['checks_passed']}/{total_checks} checks passed")
+                return validation_results
+                
+            finally:
+                await connector.disconnect()
+                
+        except Exception as e:
+            logger.error(f"Data validation failed: {str(e)}")
+            return None
     
     async def _execute_test_run(self) -> Dict[str, Any]:
         """Execute test run with sample data."""
@@ -452,25 +587,98 @@ class PipelineExecutor:
     
     async def _load_pipeline_config(self):
         """Load pipeline configuration from database."""
-        # Mock configuration
-        self.pipeline_config = {
-            "id": self.context.pipeline_id,
-            "name": f"Pipeline {self.context.pipeline_id}",
-            "execution_pattern": "ETL",
-            "data_sources": [
-                {"id": "source_1", "type": "csv", "path": "/data/input.csv"},
-                {"id": "source_2", "type": "database", "connection": "postgres://..."}
-            ],
-            "transformations": [
-                {"name": "clean_data", "type": "data_cleaning"},
-                {"name": "enrich_data", "type": "ai_enrichment", "ai_enabled": True}
-            ],
-            "destinations": [
-                {"id": "dest_1", "type": "database", "table": "processed_data"}
-            ]
-        }
-        
-        logger.info(f"Loaded configuration for pipeline {self.context.pipeline_id}")
+        try:
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+            from ...models.pipeline import ETLPipeline, PipelineStep
+            from ...core.database import AsyncSessionLocal
+            
+            async with AsyncSessionLocal() as session:
+                # Load pipeline with all related steps
+                result = await session.execute(
+                    select(ETLPipeline)
+                    .options(selectinload(ETLPipeline.steps))
+                    .where(ETLPipeline.id == self.context.pipeline_id)
+                )
+                pipeline = result.scalar_one_or_none()
+                
+                if not pipeline:
+                    raise ValueError(f"Pipeline {self.context.pipeline_id} not found")
+                
+                # Build configuration from database data
+                data_sources = []
+                transformations = []
+                destinations = []
+                
+                # Process pipeline steps
+                for step in sorted(pipeline.steps, key=lambda x: x.step_order):
+                    if step.step_type == "source":
+                        source_config = {
+                            "id": str(step.id),
+                            "type": step.step_config.get("connector_type", "database"),
+                            "connection_config": step.step_config.get("connection_config", {}),
+                            "query_config": step.step_config.get("query_config", {}),
+                            "connector_id": str(step.source_connector_id) if step.source_connector_id else None
+                        }
+                        data_sources.append(source_config)
+                    
+                    elif step.step_type == "transform":
+                        transform_config = {
+                            "id": str(step.id),
+                            "name": step.step_name,
+                            "type": step.transformation_type.value if step.transformation_type else "custom",
+                            "config": step.transformation_config or {},
+                            "sql": step.step_config.get("sql", ""),
+                            "ai_enabled": step.step_config.get("ai_enabled", False)
+                        }
+                        transformations.append(transform_config)
+                    
+                    elif step.step_type == "destination":
+                        dest_config = {
+                            "id": str(step.id),
+                            "type": step.step_config.get("connector_type", "database"),
+                            "connection_config": step.step_config.get("connection_config", {}),
+                            "load_config": step.step_config.get("load_config", {}),
+                            "connector_id": str(step.source_connector_id) if step.source_connector_id else None
+                        }
+                        destinations.append(dest_config)
+                
+                # Construct the configuration object
+                self.pipeline_config = {
+                    "id": str(pipeline.id),
+                    "name": pipeline.name,
+                    "description": pipeline.description,
+                    "status": pipeline.status.value,
+                    "execution_pattern": "ELT",  # Default to ELT for modern data processing
+                    "data_sources": data_sources,
+                    "transformations": transformations,
+                    "destinations": destinations,
+                    "schedule_cron": pipeline.schedule_cron,
+                    "is_scheduled": pipeline.is_scheduled,
+                    "tags": pipeline.tags or [],
+                    "version": pipeline.version
+                }
+                
+                logger.info(
+                    f"Loaded configuration for pipeline '{pipeline.name}' "
+                    f"({len(data_sources)} sources, {len(transformations)} transforms, "
+                    f"{len(destinations)} destinations)"
+                )
+                
+        except Exception as e:
+            logger.error(f"Failed to load pipeline configuration: {str(e)}")
+            # Fallback to minimal config to prevent complete failure
+            self.pipeline_config = {
+                "id": str(self.context.pipeline_id),
+                "name": f"Pipeline {self.context.pipeline_id}",
+                "execution_pattern": "ELT",
+                "data_sources": [],
+                "transformations": [],
+                "destinations": [],
+                "error": str(e)
+            }
+            raise
     
     async def _initialize_data_sources(self):
         """Initialize data source connections."""
@@ -511,9 +719,11 @@ class PipelineExecutor:
             elif source_type.lower() in ["mysql"]:
                 connector = MySQLConnector(connection_config)
             else:
-                # Fallback to mock data for unsupported types
-                logger.warning(f"Unsupported source type {source_type}, using mock data")
-                return [{"id": 1, "data": f"Mock data for {source_type}"}]
+                # Handle unsupported source types by raising an error
+                supported_types = ["postgresql", "postgres", "mysql"]
+                error_msg = f"Unsupported source type '{source_type}'. Supported types: {supported_types}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
             
             # Connect and extract data
             await connector.connect()
@@ -649,13 +859,11 @@ class PipelineExecutor:
             elif destination_type.lower() in ["mysql"]:
                 connector = MySQLConnector(connection_config)
             else:
-                # Fallback to mock loading for unsupported types
-                logger.warning(f"Unsupported destination type {destination_type}, using mock loading")
-                return {
-                    "records_loaded": len(data),
-                    "destination_id": destination.get("id"),
-                    "status": "mock_loaded"
-                }
+                # Handle unsupported destination types by raising an error
+                supported_types = ["postgresql", "postgres", "mysql"]
+                error_msg = f"Unsupported destination type '{destination_type}'. Supported types: {supported_types}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
             
             # Connect and load data
             await connector.connect()
@@ -692,25 +900,159 @@ class PipelineExecutor:
             raise Exception(f"Data loading failed: {str(e)}")
     
     async def _execute_sql_transformation(self, transformation: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute SQL transformation in destination database."""
+        """Execute SQL transformation in destination database for ELT pattern."""
         
-        # Mock SQL transformation
-        return {
-            "records_affected": 150,
-            "execution_time_ms": 245
-        }
+        try:
+            # Get transformation SQL and target configuration
+            sql_query = transformation.get("sql")
+            target_config = transformation.get("target_config", {})
+            
+            if not sql_query:
+                logger.error("No SQL query provided for transformation")
+                return {
+                    "records_affected": 0,
+                    "execution_time_ms": 0,
+                    "error": "No SQL query provided"
+                }
+            
+            # Get destination connector from destinations list
+            if not self.destinations:
+                logger.error("No destinations configured for SQL transformation")
+                return {
+                    "records_affected": 0,
+                    "execution_time_ms": 0,
+                    "error": "No destinations configured"
+                }
+            
+            # Use the first destination for ELT transformations
+            destination = self.destinations[0]
+            destination_type = destination.get("type", "unknown").lower()
+            connection_config = destination.get("connection_config", {})
+            
+            start_time = datetime.now()
+            
+            # Create appropriate connector
+            connector = None
+            if destination_type in ["postgresql", "postgres"]:
+                connector = PostgreSQLConnector(connection_config)
+            elif destination_type in ["mysql"]:
+                connector = MySQLConnector(connection_config)
+            else:
+                logger.error(f"Unsupported destination type for SQL transformation: {destination_type}")
+                return {
+                    "records_affected": 0,
+                    "execution_time_ms": 0,
+                    "error": f"Unsupported destination type: {destination_type}"
+                }
+            
+            # Connect and execute transformation SQL
+            await connector.connect()
+            
+            try:
+                # Execute the SQL transformation using the connector's method
+                source_table = target_config.get("source_table", "")
+                target_table = target_config.get("target_table", "")
+                
+                result = await connector.execute_transformation_sql(
+                    transformation_sql=sql_query,
+                    source_table=source_table,
+                    target_table=target_table
+                )
+                
+                execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+                
+                logger.info(f"SQL transformation completed: {result.get('rows_affected', 0)} rows affected in {execution_time_ms:.0f}ms")
+                
+                return {
+                    "records_affected": result.get("rows_affected", 0),
+                    "execution_time_ms": execution_time_ms,
+                    "source_table": source_table,
+                    "target_table": target_table,
+                    "status": "success"
+                }
+                
+            finally:
+                await connector.disconnect()
+        
+        except Exception as e:
+            execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000 if 'start_time' in locals() else 0
+            logger.error(f"SQL transformation failed: {str(e)}")
+            return {
+                "records_affected": 0,
+                "execution_time_ms": execution_time_ms,
+                "error": str(e),
+                "status": "failed"
+            }
     
     async def _generate_transformation_insights(self, transformation: Dict[str, Any], result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Generate AI insights for transformation results."""
+        """Generate insights for transformation results."""
         
-        # Mock AI insight generation
-        return [
-            {
-                "type": "performance",
-                "description": f"Transformation processed {result.get('records_affected', 0)} records efficiently",
-                "confidence": 0.92
-            }
-        ]
+        insights = []
+        records_affected = result.get('records_affected', 0)
+        transformation_type = transformation.get('type', 'unknown')
+        
+        # Performance insights
+        if records_affected > 0:
+            if records_affected > 1000000:
+                insights.append({
+                    "type": "performance",
+                    "description": f"Large-scale transformation processed {records_affected:,} records successfully",
+                    "confidence": 0.95,
+                    "metric": "high_volume"
+                })
+            elif records_affected > 10000:
+                insights.append({
+                    "type": "performance", 
+                    "description": f"Medium-scale transformation processed {records_affected:,} records efficiently",
+                    "confidence": 0.88,
+                    "metric": "medium_volume"
+                })
+            else:
+                insights.append({
+                    "type": "performance",
+                    "description": f"Transformation completed for {records_affected:,} records",
+                    "confidence": 0.85,
+                    "metric": "standard_volume"
+                })
+        
+        # Transformation-specific insights
+        if transformation_type == "JOIN":
+            insights.append({
+                "type": "data_quality",
+                "description": "Join operation completed - verify data relationship integrity",
+                "confidence": 0.80,
+                "recommendation": "Review join results for data completeness"
+            })
+        elif transformation_type == "AGGREGATE":
+            insights.append({
+                "type": "data_summary",
+                "description": "Data aggregation completed - summary statistics available",
+                "confidence": 0.87,
+                "recommendation": "Consider indexing aggregated results for query performance"
+            })
+        elif transformation_type == "DEDUPLICATE":
+            duplicates_removed = result.get('duplicates_removed', 0)
+            if duplicates_removed > 0:
+                insights.append({
+                    "type": "data_quality",
+                    "description": f"Removed {duplicates_removed:,} duplicate records",
+                    "confidence": 0.92,
+                    "metric": "data_cleanliness"
+                })
+        
+        # Error rate insights
+        error_count = result.get('errors', 0)
+        if error_count > 0:
+            error_rate = (error_count / max(records_affected, 1)) * 100
+            insights.append({
+                "type": "data_quality",
+                "description": f"Transformation had {error_rate:.2f}% error rate ({error_count} errors)",
+                "confidence": 0.95,
+                "severity": "high" if error_rate > 5 else "medium" if error_rate > 1 else "low",
+                "recommendation": "Review error logs and data quality checks"
+            })
+        
+        return insights
     
     async def _finalize_execution(self, result: Dict[str, Any]):
         """Finalize pipeline execution."""

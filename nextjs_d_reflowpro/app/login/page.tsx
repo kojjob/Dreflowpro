@@ -15,10 +15,12 @@ import { SocialButtons } from "@/app/components/auth/SocialButtons"
 import { Button } from "@/app/components/ui/Button"
 import { Input } from "@/app/components/ui/Input"
 import { Alert, AlertDescription } from "@/app/components/ui/Alert"
+import { authService } from "@/app/services/auth"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean().optional(),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -42,26 +44,17 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+      await authService.login({
+        email: data.email,
+        password: data.password,
+        rememberMe: data.rememberMe,
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        localStorage.setItem('access_token', result.access_token)
-        localStorage.setItem('refresh_token', result.refresh_token)
-        toast.success('Welcome back!')
-        router.push('/dashboard')
-      } else {
-        const errorData = await response.json()
-        setError(errorData.detail || 'Login failed. Please try again.')
-      }
+      toast.success('Welcome back!')
+      router.push('/dashboard')
     } catch (error) {
-      setError('Network error. Please check your connection and try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -169,8 +162,8 @@ export default function LoginPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
+                {...register("rememberMe")}
                 id="remember-me"
-                name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />

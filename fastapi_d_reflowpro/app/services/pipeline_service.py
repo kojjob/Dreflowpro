@@ -246,8 +246,32 @@ class PipelineService:
         await self.db.commit()
         await self.db.refresh(execution)
         
-        # TODO: Enqueue actual pipeline execution job
-        # This would integrate with the Celery background tasks
+        # Enqueue actual pipeline execution job with Celery
+        try:
+            from ..workers.pipeline_tasks import execute_pipeline_task
+            
+            # Enqueue the pipeline execution task
+            task_result = execute_pipeline_task.delay(
+                pipeline_id=str(pipeline_id),
+                execution_id=str(execution.id),
+                user_id=str(user_id),
+                trigger_type=execution_data.trigger_type or "manual",
+                trigger_data=execution_data.trigger_data or {}
+            )
+            
+            # Update execution with task ID for tracking
+            execution.task_id = task_result.id
+            await self.db.commit()
+            
+        except Exception as e:
+            # If job queue is not available, mark execution as failed
+            execution.status = ExecutionStatus.FAILED
+            execution.ended_at = datetime.utcnow()
+            execution.result = {
+                "error": f"Failed to enqueue execution: {str(e)}",
+                "fallback_mode": True
+            }
+            await self.db.commit()
         
         return execution
     

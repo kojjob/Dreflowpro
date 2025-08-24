@@ -253,8 +253,36 @@ export const USER_PREFERENCES_DEFAULTS = {
   },
 } as const;
 
-// API endpoints
+// API endpoints - Enhanced for production backend
 export const API_ENDPOINTS = {
+  // Health check
+  health: '/health',
+  
+  // Authentication endpoints
+  auth: {
+    register: '/api/v1/auth/register',
+    login: '/api/v1/auth/login',
+    refresh: '/api/v1/auth/refresh',
+    logout: '/api/v1/auth/logout',
+    me: '/api/v1/auth/me',
+    verifyEmail: (token: string) => `/api/v1/auth/verify-email/${token}`,
+    requestPasswordReset: '/api/v1/auth/request-password-reset',
+    resetPassword: (token: string) => `/api/v1/auth/reset-password/${token}`,
+    apiKeys: {
+      list: '/api/v1/auth/api-keys',
+      create: '/api/v1/auth/api-keys',
+      revoke: (keyId: string) => `/api/v1/auth/api-keys/${keyId}`,
+      toggle: (keyId: string) => `/api/v1/auth/api-keys/${keyId}/toggle`,
+    },
+    oauth: {
+      login: (provider: string) => `/api/v1/auth/oauth/${provider}/login`,
+      callback: (provider: string) => `/api/v1/auth/oauth/${provider}/callback`,
+      link: (provider: string) => `/api/v1/auth/oauth/${provider}/link`,
+      unlink: (provider: string) => `/api/v1/auth/oauth/${provider}/unlink`,
+    },
+  },
+
+  // Data management endpoints
   data: {
     upload: '/api/v1/data/upload',
     preview: (fileId: string) => `/api/v1/data/files/${fileId}/preview`,
@@ -264,6 +292,50 @@ export const API_ENDPOINTS = {
     info: (fileId: string) => `/api/v1/data/files/${fileId}`,
     supportedFormats: '/api/v1/data/supported-formats',
   },
+
+  // ETL Pipeline endpoints
+  pipelines: {
+    list: '/api/v1/pipelines',
+    create: '/api/v1/pipelines',
+    get: (pipelineId: string) => `/api/v1/pipelines/${pipelineId}`,
+    update: (pipelineId: string) => `/api/v1/pipelines/${pipelineId}`,
+    delete: (pipelineId: string) => `/api/v1/pipelines/${pipelineId}`,
+    execute: (pipelineId: string) => `/api/v1/pipelines/${pipelineId}/execute`,
+    executions: (pipelineId: string) => `/api/v1/pipelines/${pipelineId}/executions`,
+    cancel: (pipelineId: string, executionId: string) => `/api/v1/pipelines/${pipelineId}/executions/${executionId}/cancel`,
+  },
+
+  // Data connectors endpoints
+  connectors: {
+    list: '/api/v1/connectors',
+    create: '/api/v1/connectors',
+    get: (connectorId: string) => `/api/v1/connectors/${connectorId}`,
+    update: (connectorId: string) => `/api/v1/connectors/${connectorId}`,
+    delete: (connectorId: string) => `/api/v1/connectors/${connectorId}`,
+    test: (connectorId: string) => `/api/v1/connectors/${connectorId}/test`,
+    preview: (connectorId: string) => `/api/v1/connectors/${connectorId}/preview`,
+  },
+
+  // Background tasks endpoints
+  tasks: {
+    status: '/api/v1/tasks/status',
+    queue: '/api/v1/tasks/queue',
+    history: '/api/v1/tasks/history',
+    metrics: '/api/v1/tasks/metrics',
+    execute: {
+      pipeline: '/api/v1/tasks/execute/pipeline',
+      dataProcessing: '/api/v1/tasks/execute/data-processing',
+      reportGeneration: '/api/v1/tasks/execute/report-generation',
+      maintenance: '/api/v1/tasks/execute/maintenance',
+      notification: '/api/v1/tasks/execute/notification',
+    },
+    cancel: (taskId: string) => `/api/v1/tasks/${taskId}/cancel`,
+    retry: (taskId: string) => `/api/v1/tasks/${taskId}/retry`,
+    get: (taskId: string) => `/api/v1/tasks/${taskId}`,
+    logs: (taskId: string) => `/api/v1/tasks/${taskId}/logs`,
+  },
+
+  // Configuration endpoints
   config: {
     upload: '/api/v1/config/upload',
     transformations: '/api/v1/config/transformations',

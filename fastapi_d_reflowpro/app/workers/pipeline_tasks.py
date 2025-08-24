@@ -189,14 +189,97 @@ def schedule_pipeline_execution(self, pipeline_id: int, schedule_config: Dict[st
 
 def _create_pipeline_execution(pipeline_id: int, task_id: str, is_test: bool = False) -> int:
     """Create pipeline execution record in database."""
-    # This would typically use the database session
-    # For now, returning a mock execution ID
-    return hash(f"{pipeline_id}_{task_id}_{datetime.now().isoformat()}") % 1000000
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.models.pipeline import PipelineExecution, ExecutionStatus
+        from app.core.database import AsyncSessionFactory
+        import uuid
+        
+        async def create_execution():
+            async with AsyncSessionFactory() as session:
+                execution = PipelineExecution(
+                    id=uuid.uuid4(),
+                    pipeline_id=uuid.UUID(str(pipeline_id)) if isinstance(pipeline_id, str) else pipeline_id,
+                    status=ExecutionStatus.PENDING,
+                    task_id=task_id,
+                    trigger_type="manual" if is_test else "scheduled",
+                    started_at=datetime.now()
+                )
+                
+                session.add(execution)
+                await session.commit()
+                await session.refresh(execution)
+                
+                return str(execution.id)
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(create_execution())
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed to create pipeline execution: {str(e)}")
+        # Return fallback ID if database operation fails
+        return f"exec_{hash(f'{pipeline_id}_{task_id}_{datetime.now().isoformat()}') % 1000000}"
 
-def _update_execution_status(execution_id: int, status: str, result: Dict[str, Any]):
+def _update_execution_status(execution_id: str, status: str, result: Dict[str, Any]):
     """Update execution status in database."""
-    logger.info(f"Execution {execution_id} status updated to {status}")
-    # Database update logic would go here
+    try:
+        import asyncio
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.models.pipeline import PipelineExecution, ExecutionStatus
+        from app.core.database import AsyncSessionFactory
+        from sqlalchemy import select
+        import uuid
+        
+        async def update_status():
+            async with AsyncSessionFactory() as session:
+                # Find execution record
+                if execution_id.startswith("exec_"):
+                    # Handle fallback ID case - just log
+                    logger.info(f"Execution {execution_id} status updated to {status} (fallback mode)")
+                    return
+                
+                result_query = await session.execute(
+                    select(PipelineExecution).where(PipelineExecution.id == uuid.UUID(execution_id))
+                )
+                execution = result_query.scalar_one_or_none()
+                
+                if execution:
+                    execution.status = ExecutionStatus(status.lower())
+                    execution.ended_at = datetime.now()
+                    execution.result = result
+                    
+                    if result.get("rows_processed"):
+                        execution.rows_processed = result["rows_processed"]
+                    if result.get("rows_successful"):
+                        execution.rows_successful = result["rows_successful"]
+                    if result.get("rows_failed"):
+                        execution.rows_failed = result["rows_failed"]
+                    
+                    await session.commit()
+                    logger.info(f"Execution {execution_id} status updated to {status}")
+                else:
+                    logger.warning(f"Execution {execution_id} not found for status update")
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(update_status())
+        except Exception as inner_e:
+            logger.error(f"Failed to update execution status: {str(inner_e)}")
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Error updating execution status for {execution_id}: {str(e)}")
+        # Log the status update for fallback
+        logger.info(f"Execution {execution_id} status updated to {status} (logged only due to error)")
 
 async def _async_validate_pipeline(pipeline_id: int, task):
     """Async pipeline validation logic."""
