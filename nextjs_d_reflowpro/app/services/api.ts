@@ -5,6 +5,8 @@
 
 import { API_CONFIG, API_ENDPOINTS } from '../config/dataConfig';
 import { authService } from './auth';
+import { mockApiService } from './mockApi';
+import Logger from '../utils/logger';
 
 interface QueuedRequest {
   resolve: (value: Response) => void;
@@ -18,10 +20,53 @@ class ApiService {
   private timeout: number;
   private isRefreshing: boolean = false;
   private requestQueue: QueuedRequest[] = [];
+  private isApiAvailable: boolean = false;
+  private lastApiCheck: number = 0;
+  private apiCheckInterval: number = 30000; // Check every 30 seconds
 
   constructor() {
     this.baseUrl = API_CONFIG.baseUrl;
     this.timeout = API_CONFIG.timeout;
+    this.checkApiAvailability();
+  }
+
+  /**
+   * Check if the API is available
+   */
+  private async checkApiAvailability(): Promise<boolean> {
+    const now = Date.now();
+
+    // Only check if it's been more than the interval since last check
+    if (now - this.lastApiCheck < this.apiCheckInterval) {
+      return this.isApiAvailable;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      this.isApiAvailable = response.ok;
+      this.lastApiCheck = now;
+
+      if (this.isApiAvailable) {
+        Logger.log('✅ API is available');
+      } else {
+        Logger.warn('⚠️ API responded but not healthy, using mock data');
+      }
+
+      return this.isApiAvailable;
+    } catch (error) {
+      this.isApiAvailable = false;
+      this.lastApiCheck = now;
+      Logger.warn('⚠️ API not available, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+      return false;
+    }
   }
 
   /**
@@ -38,7 +83,7 @@ class ApiService {
         headers['Authorization'] = `Bearer ${token}`;
       }
     } catch (error) {
-      console.warn('Failed to get valid access token:', error);
+      Logger.warn('Failed to get valid access token:', error);
     }
     
     return headers;
@@ -56,7 +101,7 @@ class ApiService {
         headers['Authorization'] = `Bearer ${token}`;
       }
     } catch (error) {
-      console.warn('Failed to get valid access token for form upload:', error);
+      Logger.warn('Failed to get valid access token for form upload:', error);
     }
     
     return headers;
@@ -152,7 +197,7 @@ class ApiService {
           return retryResponse;
         } catch (refreshError) {
           // Token refresh failed, redirect to login
-          console.error('Token refresh failed:', refreshError);
+          Logger.error('Token refresh failed:', refreshError);
 
           // Determine if this is a session expiry or other error
           const errorMessage = refreshError instanceof Error ? refreshError.message : String(refreshError);
@@ -162,7 +207,7 @@ class ApiService {
                                    errorMessage.includes('Invalid token received from refresh');
 
           if (isSessionExpired) {
-            console.log('Session expired, logging out user');
+            Logger.log('Session expired, logging out user');
             authService.logout();
 
             // Reject all queued requests with session expired message
@@ -175,7 +220,7 @@ class ApiService {
             throw new Error('Session expired. Please log in again.');
           } else {
             // Other refresh errors - don't logout immediately
-            console.warn('Token refresh failed but not due to expiry:', refreshError);
+            Logger.warn('Token refresh failed but not due to expiry:', refreshError);
 
             // Reject all queued requests
             const queue = [...this.requestQueue];
@@ -262,7 +307,22 @@ class ApiService {
       method: 'DELETE',
       headers,
     });
-    
+
+    return response.json();
+  }
+
+  /**
+   * PATCH request
+   */
+  async patch<T>(endpoint: string, data?: any): Promise<T> {
+    const url = this.createUrl(endpoint);
+    const headers = await this.getAuthHeaders();
+    const response = await this.fetchWithTimeout(url, {
+      method: 'PATCH',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
     return response.json();
   }
 
@@ -383,6 +443,51 @@ class ApiService {
     return this.get(API_ENDPOINTS.auth.me);
   }
 
+  async updateUserProfile(profileData: any): Promise<any> {
+    return this.put(API_ENDPOINTS.auth.me, profileData);
+  }
+
+  async changePassword(passwordData: any): Promise<any> {
+    return this.post('/api/v1/auth/change-password', passwordData);
+  }
+
+  // NOTIFICATIONS API METHODS
+  // ========================================
+
+  async getNotifications(params?: { limit?: number; offset?: number; unreadOnly?: boolean }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    if (params?.unreadOnly) queryParams.append('unread_only', 'true');
+
+    const url = `/api/v1/notifications${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return this.get(url);
+  }
+
+  async getNotificationSummary(): Promise<any> {
+    return this.get('/api/v1/notifications/summary');
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<any> {
+    return this.patch(`/api/v1/notifications/${notificationId}/read`);
+  }
+
+  async markAllNotificationsAsRead(): Promise<any> {
+    return this.post('/api/v1/notifications/mark-all-read');
+  }
+
+  async deleteNotification(notificationId: string): Promise<any> {
+    return this.delete(`/api/v1/notifications/${notificationId}`);
+  }
+
+  async getNotificationSettings(): Promise<any> {
+    return this.get('/api/v1/notifications/settings');
+  }
+
+  async updateNotificationSettings(settings: any): Promise<any> {
+    return this.put('/api/v1/notifications/settings', settings);
+  }
+
   async verifyEmail(token: string): Promise<any> {
     return this.post(API_ENDPOINTS.auth.verifyEmail(token));
   }
@@ -423,11 +528,31 @@ class ApiService {
   // ========================================
 
   async getPipelines(): Promise<any> {
-    return this.get(API_ENDPOINTS.pipelines.list);
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🔧 Using mock pipelines data');
+        return await mockApiService.getPipelines();
+      }
+      return this.get(API_ENDPOINTS.pipelines.list);
+    } catch (error) {
+      Logger.warn('Failed to fetch pipelines from API, using mock data:', error);
+      return await mockApiService.getPipelines();
+    }
   }
 
   async createPipeline(pipelineData: any): Promise<any> {
-    return this.post(API_ENDPOINTS.pipelines.create, pipelineData);
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🔧 Using mock pipeline creation');
+        return await mockApiService.createPipeline(pipelineData);
+      }
+      return this.post(API_ENDPOINTS.pipelines.create, pipelineData);
+    } catch (error) {
+      Logger.warn('Failed to create pipeline via API, using mock creation:', error);
+      return await mockApiService.createPipeline(pipelineData);
+    }
   }
 
   async getPipeline(pipelineId: string): Promise<any> {
@@ -447,7 +572,17 @@ class ApiService {
   }
 
   async getPipelineExecutions(pipelineId: string): Promise<any> {
-    return this.get(API_ENDPOINTS.pipelines.executions(pipelineId));
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🔧 Using mock pipeline executions data');
+        return await mockApiService.getPipelineExecutions(pipelineId);
+      }
+      return this.get(API_ENDPOINTS.pipelines.executions(pipelineId));
+    } catch (error) {
+      Logger.warn('Failed to fetch pipeline executions from API, using mock data:', error);
+      return await mockApiService.getPipelineExecutions(pipelineId);
+    }
   }
 
   async cancelExecution(pipelineId: string, executionId: string): Promise<any> {
@@ -459,11 +594,31 @@ class ApiService {
   // ========================================
 
   async getConnectors(): Promise<any> {
-    return this.get(API_ENDPOINTS.connectors.list);
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🔌 Using mock connectors data');
+        return await mockApiService.getConnectors();
+      }
+      return this.get(API_ENDPOINTS.connectors.list);
+    } catch (error) {
+      Logger.warn('Failed to fetch connectors from API, using mock data:', error);
+      return await mockApiService.getConnectors();
+    }
   }
 
   async createConnector(connectorData: any): Promise<any> {
-    return this.post(API_ENDPOINTS.connectors.create, connectorData);
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🔌 Using mock connector creation');
+        return await mockApiService.createConnector(connectorData);
+      }
+      return this.post(API_ENDPOINTS.connectors.create, connectorData);
+    } catch (error) {
+      Logger.warn('Failed to create connector via API, using mock creation:', error);
+      return await mockApiService.createConnector(connectorData);
+    }
   }
 
   async getConnector(connectorId: string): Promise<any> {
@@ -509,7 +664,17 @@ class ApiService {
   }
 
   async getTaskMetrics(): Promise<any> {
-    return this.get(API_ENDPOINTS.tasks.metrics);
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('📊 Using mock task metrics data');
+        return await mockApiService.getTaskMetrics();
+      }
+      return this.get(API_ENDPOINTS.tasks.metrics);
+    } catch (error) {
+      Logger.warn('Failed to fetch task metrics from API, using mock data:', error);
+      return await mockApiService.getTaskMetrics();
+    }
   }
 
   async executeTask(taskType: 'pipeline' | 'dataProcessing' | 'reportGeneration' | 'maintenance' | 'notification', taskData: any): Promise<any> {
@@ -538,7 +703,17 @@ class ApiService {
   // ========================================
 
   async getHealthStatus(): Promise<any> {
-    return this.get(API_ENDPOINTS.health);
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🏥 Using mock health status data');
+        return await mockApiService.getHealthStatus();
+      }
+      return this.get(API_ENDPOINTS.health);
+    } catch (error) {
+      Logger.warn('Failed to fetch health status from API, using mock data:', error);
+      return await mockApiService.getHealthStatus();
+    }
   }
 }
 
