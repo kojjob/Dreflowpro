@@ -44,8 +44,6 @@ class Organization(Base):
     
     # Relationships
     users = relationship("User", back_populates="organization")
-    connectors = relationship("DataConnector", back_populates="organization")
-    pipelines = relationship("ETLPipeline", back_populates="organization")
 
 
 class User(Base):
@@ -71,7 +69,6 @@ class User(Base):
     # Relationships
     organization = relationship("Organization", back_populates="users")
     api_keys = relationship("APIKey", back_populates="user")
-    created_pipelines = relationship("ETLPipeline", back_populates="created_by")
     social_accounts = relationship("SocialAccount", back_populates="user", cascade="all, delete-orphan")
     
     @property

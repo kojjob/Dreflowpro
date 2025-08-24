@@ -1,42 +1,18 @@
-# Import all models here to ensure they are registered with SQLAlchemy
+# Import Phase 1 models only - basic authentication and security
+# Phase 2 will include connector and pipeline models
 
 from .user import Organization, User, APIKey
 from .token_family import TokenFamily, RefreshToken, TokenAuditLog, TokenStatus
-from .connector import DataConnector, DataPreview, ConnectorType, ConnectorStatus
-from .pipeline import (
-    ETLPipeline, 
-    PipelineStep, 
-    PipelineExecution, 
-    TransformationTemplate,
-    PipelineStatus,
-    ExecutionStatus,
-    TransformationType
-)
 
 __all__ = [
-    # User models
+    # User models (Phase 1)
     "Organization",
     "User", 
     "APIKey",
     
-    # Token models
+    # Token models (Phase 1) 
     "TokenFamily",
     "RefreshToken",
     "TokenAuditLog",
-    "TokenStatus",
-    
-    # Connector models
-    "DataConnector",
-    "DataPreview", 
-    "ConnectorType",
-    "ConnectorStatus",
-    
-    # Pipeline models
-    "ETLPipeline",
-    "PipelineStep",
-    "PipelineExecution", 
-    "TransformationTemplate",
-    "PipelineStatus",
-    "ExecutionStatus",
-    "TransformationType"
+    "TokenStatus"
 ]

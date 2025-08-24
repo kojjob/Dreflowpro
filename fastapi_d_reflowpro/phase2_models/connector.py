@@ -55,10 +55,10 @@ class DataConnector(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    organization = relationship("Organization", back_populates="connectors")
+    # Relationships - Phase 1: Comment out relationships to non-existent Phase 2 models
+    # organization = relationship("Organization", back_populates="connectors")  # Phase 2
     created_by = relationship("User")
-    pipeline_steps = relationship("PipelineStep", back_populates="source_connector")
+    # pipeline_steps = relationship("PipelineStep", back_populates="source_connector")  # Phase 2
 
 
 class DataPreview(Base):

@@ -14,8 +14,8 @@ from app.core.openapi_config import setup_openapi_docs
 # Import all models to register them with SQLAlchemy
 import app.models.all  # noqa
 
-# Import API routers
-from app.api.v1.router import router as v1_router
+# Import API routers - Phase 1 version
+from app.api.v1.router_phase1 import router as v1_router
 
 # Import middleware
 from app.middleware.rate_limiting import GlobalRateLimitMiddleware, APIRateLimitMiddleware
