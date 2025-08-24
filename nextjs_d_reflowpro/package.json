@@ -24,7 +24,12 @@
     "perf:ci": "npm run perf:monitor && npm run perf:analyze",
     "build:perf": "npm run perf:monitor",
     "build:optimized": "node scripts/build-optimized.js",
-    "build:production": "NODE_ENV=production npm run build:optimized && npm run perf:ci"
+    "build:production": "NODE_ENV=production npm run build:optimized && npm run perf:ci",
+    "perf:dashboard": "next dev --port 3001",
+    "perf:lighthouse": "lighthouse http://localhost:3000 --config-path=lighthouse.config.js --output=html --output-path=./performance-reports/lighthouse-report.html",
+    "perf:budget": "node scripts/performance-budget-check.js",
+    "perf:regression": "node scripts/performance-regression-check.js",
+    "perf:alert": "node scripts/performance-alert.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

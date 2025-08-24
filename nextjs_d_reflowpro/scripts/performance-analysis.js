@@ -309,6 +309,61 @@ class PerformanceAnalyzer {
     
     // Generate HTML report
     this.generateHTMLReport(report);
+
+    // Check for critical issues and send alerts
+    await this.checkCriticalIssues(report);
+  }
+
+  async checkCriticalIssues(report) {
+    const criticalIssues = [];
+
+    // Check bundle size
+    if (report.summary.totalBundleSize > 3 * 1024 * 1024) { // 3MB
+      criticalIssues.push(`Bundle size (${this.formatBytes(report.summary.totalBundleSize)}) exceeds 3MB`);
+    }
+
+    // Check for too many chunks
+    if (report.summary.chunkCount > 150) {
+      criticalIssues.push(`Too many chunks (${report.summary.chunkCount}) may impact performance`);
+    }
+
+    // Check for performance issues
+    if (this.results.bundleAnalysis.performanceIssues?.length > 50) {
+      criticalIssues.push(`High number of performance issues detected (${this.results.bundleAnalysis.performanceIssues.length})`);
+    }
+
+    if (criticalIssues.length > 0) {
+      await this.sendPerformanceAlert(criticalIssues);
+    }
+  }
+
+  async sendPerformanceAlert(issues) {
+    const alertData = {
+      timestamp: new Date().toISOString(),
+      severity: 'high',
+      issues: issues,
+      bundleSize: this.results.bundleAnalysis.totalSize || 0,
+      chunkCount: this.results.bundleAnalysis.chunkCount || 0
+    };
+
+    // Send to webhook if configured
+    if (process.env.PERFORMANCE_ALERT_WEBHOOK) {
+      try {
+        const fetch = (await import('node-fetch')).default;
+        await fetch(process.env.PERFORMANCE_ALERT_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(alertData)
+        });
+        console.log('🚨 Performance alert sent');
+      } catch (error) {
+        console.error('Failed to send performance alert:', error.message);
+      }
+    }
+
+    // Log critical issues
+    console.warn('🚨 Critical Performance Issues Detected:');
+    issues.forEach(issue => console.warn(`   - ${issue}`));
   }
 
   generateHTMLReport(report) {
