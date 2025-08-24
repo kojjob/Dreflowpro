@@ -5,7 +5,7 @@ const mockUsers = [
   {
     id: 'user_123',
     email: 'admin@dreflowpro.com',
-    password: 'admin123', // In real app, this would be hashed
+    password: 'mock_admin_password', // In real app, this would be hashed
     name: 'Admin User',
     role: 'admin',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
@@ -16,7 +16,7 @@ const mockUsers = [
   {
     id: 'user_456',
     email: 'demo@dreflowpro.com',
-    password: 'demo123',
+    password: 'mock_demo_password',
     name: 'Demo User',
     role: 'user',
     avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',

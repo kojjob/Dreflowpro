@@ -438,8 +438,8 @@ def add_examples_to_schema(openapi_schema: Dict[str, Any]) -> None:
             "summary": "User Registration",
             "value": {
                 "email": "john.doe@example.com",
-                "password": "SecureP@ssw0rd123!",
-                "confirm_password": "SecureP@ssw0rd123!",
+                "password": "your_secure_password_here",
+                "confirm_password": "your_secure_password_here",
                 "first_name": "John",
                 "last_name": "Doe",
                 "organization_name": "Acme Corp"
@@ -449,7 +449,7 @@ def add_examples_to_schema(openapi_schema: Dict[str, Any]) -> None:
             "summary": "User Login",
             "value": {
                 "email": "john.doe@example.com",
-                "password": "SecureP@ssw0rd123!"
+                "password": "your_secure_password_here"
             }
         }
     }

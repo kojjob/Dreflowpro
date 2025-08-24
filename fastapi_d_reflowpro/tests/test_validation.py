@@ -16,7 +16,7 @@ class TestValidatorMixin:
     def test_password_strength_validation(self):
         """Test password strength validation."""
         # Valid password
-        strong_password = "StrongP@ssw0rd!"
+        strong_password = "TestPassword123!"
         assert ValidatorMixin.validate_password_strength(strong_password) == strong_password
         
         # Too short
@@ -195,8 +195,8 @@ class TestSchemaValidation:
         # Valid registration data
         valid_data = {
             "email": "user@example.com",
-            "password": "StrongP@ssw0rd!",
-            "confirm_password": "StrongP@ssw0rd!",
+            "password": "TestPassword123!",
+            "confirm_password": "TestPassword123!",
             "first_name": "John",
             "last_name": "Doe"
         }
@@ -208,8 +208,8 @@ class TestSchemaValidation:
         with pytest.raises(ValueError):
             UserRegister(
                 email="invalid-email",
-                password="StrongP@ssw0rd!",
-                confirm_password="StrongP@ssw0rd!",
+                password="TestPassword123!",
+                confirm_password="TestPassword123!",
                 first_name="John",
                 last_name="Doe"
             )
@@ -228,8 +228,8 @@ class TestSchemaValidation:
         with pytest.raises(ValueError):
             UserRegister(
                 email="user@example.com",
-                password="StrongP@ssw0rd!",
-                confirm_password="DifferentP@ssw0rd!",
+                password="TestPassword123!",
+                confirm_password="DifferentPassword123!",
                 first_name="John",
                 last_name="Doe"
             )
@@ -242,7 +242,7 @@ class TestSchemaValidation:
             "port": 5432,
             "database": "testdb",
             "username": "testuser",
-            "password": "testpass"
+            "password": "mock_test_password"
         }
         
         valid_connector = ConnectorCreate(
@@ -280,7 +280,7 @@ class TestSchemaValidation:
             port=5432,
             database="testdb",
             username="testuser",
-            password="testpass"
+            password="mock_test_password"
         )
         
         assert valid_config.host == "localhost"
@@ -330,7 +330,7 @@ class TestValidationIntegration:
                 "port": 5432,
                 "database": "testdb",
                 "username": "testuser",
-                "password": "testpass"
+                "password": "mock_test_password"
             }
         }
         
@@ -361,8 +361,8 @@ class TestValidationIntegration:
         # Valid registration
         valid_data = {
             "email": "test@example.com",
-            "password": "StrongP@ssw0rd!",
-            "confirm_password": "StrongP@ssw0rd!",
+            "password": "TestPassword123!",
+            "confirm_password": "TestPassword123!",
             "first_name": "John",
             "last_name": "Doe"
         }
