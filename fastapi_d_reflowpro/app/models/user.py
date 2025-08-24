@@ -62,10 +62,10 @@ class User(Base):
     auth_method = Column(Enum(AuthMethod), default=AuthMethod.EMAIL)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"))
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
     provider_data = Column(JSON, nullable=True)  # Store additional provider-specific data
-    last_login = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
@@ -87,10 +87,10 @@ class SocialAccount(Base):
     __tablename__ = "social_accounts"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    provider = Column(Enum(OAuthProvider), nullable=False)
-    provider_account_id = Column(String(255), nullable=False)  # ID from the OAuth provider
-    provider_account_email = Column(String(255), nullable=True)  # Email from provider
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    provider = Column(Enum(OAuthProvider), nullable=False, index=True)
+    provider_account_id = Column(String(255), nullable=False, index=True)  # ID from the OAuth provider
+    provider_account_email = Column(String(255), nullable=True, index=True)  # Email from provider
     access_token = Column(Text, nullable=True)  # OAuth access token (encrypted in production)
     refresh_token = Column(Text, nullable=True)  # OAuth refresh token (encrypted in production) 
     expires_at = Column(DateTime(timezone=True), nullable=True)  # Token expiration
@@ -116,11 +116,11 @@ class APIKey(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    key_hash = Column(String(255), nullable=False, unique=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    is_active = Column(Boolean, default=True)
+    key_hash = Column(String(255), nullable=False, unique=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
+    is_active = Column(Boolean, default=True, index=True)
     last_used = Column(DateTime(timezone=True), nullable=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
