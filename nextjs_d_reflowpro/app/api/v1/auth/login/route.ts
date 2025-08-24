@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Mock user data
+// Mock user data - Using environment variables for security
+const getDemoPassword = () => process.env.DEMO_PASSWORD || 'dev_password_123';
+const getAdminPassword = () => process.env.ADMIN_PASSWORD || 'admin_password_456';
+
 const mockUsers = [
   {
     id: 'user_123',
     email: 'admin@dreflowpro.com',
-    password: 'mock_admin_password', // In real app, this would be hashed
+    password: getAdminPassword(), // In real app, this would be hashed
     name: 'Admin User',
     role: 'admin',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
@@ -16,7 +19,7 @@ const mockUsers = [
   {
     id: 'user_456',
     email: 'demo@dreflowpro.com',
-    password: 'mock_demo_password',
+    password: getDemoPassword(),
     name: 'Demo User',
     role: 'user',
     avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
