@@ -25,6 +25,7 @@ import {
 import { apiService } from '../../services/api';
 import { Notification, NotificationSummary, NotificationType } from '../../types/user';
 import { toast } from 'sonner';
+import Logger from '../../utils/logger';
 
 interface NotificationsDropdownProps {
   className?: string;
@@ -80,7 +81,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ className
   }, []);
 
   const fetchNotifications = () => {
-    console.log('🔔 Loading mock notifications directly');
+    Logger.log('🔔 Loading mock notifications directly');
     // Use mock data directly to avoid API delays
     setNotifications([
         {
@@ -146,11 +147,11 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ className
         }
       ]);
     setLoading(false);
-    console.log('🔔 Mock notifications loaded');
+    Logger.log('🔔 Mock notifications loaded');
   };
 
   const fetchNotificationSummary = () => {
-    console.log('🔔 Loading mock notification summary');
+    Logger.log('🔔 Loading mock notification summary');
     // Use mock data directly to avoid API delays
     setSummary({
         total: 4,
@@ -169,7 +170,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ className
         },
         hasHighPriority: true
       });
-    console.log('🔔 Mock notification summary loaded');
+    Logger.log('🔔 Mock notification summary loaded');
   };
 
   const getNotificationIcon = (type: NotificationType, iconName?: string) => {
@@ -229,7 +230,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ className
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read if not already read
     if (!notification.isRead) {
-      console.log('🔔 Marking notification as read:', notification.id);
+      Logger.log('🔔 Marking notification as read:', notification.id);
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n)
       );
@@ -255,7 +256,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ className
         // Implement retry logic
         break;
       default:
-        console.warn('Unknown notification action:', action);
+        Logger.warn('Unknown notification action:', action);
     }
   };
 
@@ -263,7 +264,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ className
     if (markingAllRead) return;
     
     setMarkingAllRead(true);
-    console.log('🔔 Marking all notifications as read');
+    Logger.log('🔔 Marking all notifications as read');
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     setSummary(prev => prev ? { ...prev, unread: 0 } : null);
     toast.success('All notifications marked as read');

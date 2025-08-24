@@ -3,6 +3,8 @@
  * Provides fallback data when the backend API is not available
  */
 
+import Logger from '../utils/logger';
+
 export interface MockHealthStatus {
   status: string;
   app: string;
@@ -366,7 +368,7 @@ class MockApiService {
   // ========================================
 
   getCurrentUser() {
-    console.log('📝 MockAPI: getCurrentUser called');
+    Logger.log('📝 MockAPI: getCurrentUser called');
 
     // Default user data
     const defaultUser = {
@@ -426,11 +428,11 @@ class MockApiService {
       const savedProfile = localStorage.getItem('dreflowpro_user_profile');
       if (savedProfile) {
         const parsedProfile = JSON.parse(savedProfile);
-        console.log('💾 Loaded saved user profile from localStorage:', parsedProfile);
+        Logger.log('💾 Loaded saved user profile from localStorage:', parsedProfile);
         return parsedProfile;
       }
     } catch (error) {
-      console.warn('Failed to load user profile from localStorage:', error);
+      Logger.warn('Failed to load user profile from localStorage:', error);
     }
 
     // Return default user if no saved profile
@@ -566,7 +568,7 @@ class MockApiService {
   }
 
   updateUserProfile(profileData: any) {
-    console.log('📝 MockAPI: updateUserProfile called with:', profileData);
+    Logger.log('📝 MockAPI: updateUserProfile called with:', profileData);
 
     // Get current user data
     const currentUser = this.getCurrentUser();
@@ -577,9 +579,9 @@ class MockApiService {
     // Persist to localStorage for development
     try {
       localStorage.setItem('dreflowpro_user_profile', JSON.stringify(updatedUser));
-      console.log('💾 User profile saved to localStorage:', updatedUser);
+      Logger.log('💾 User profile saved to localStorage:', updatedUser);
     } catch (error) {
-      console.warn('Failed to save user profile to localStorage:', error);
+      Logger.warn('Failed to save user profile to localStorage:', error);
     }
 
     return updatedUser;

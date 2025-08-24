@@ -16,6 +16,7 @@ import { Button } from "@/app/components/ui/Button"
 import { Input } from "@/app/components/ui/Input"
 import { Alert, AlertDescription } from "@/app/components/ui/Alert"
 import { useAuth } from "@/app/contexts/AuthContext"
+import Logger from "@/app/utils/logger"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -47,7 +48,7 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (error) {
-      console.error('Login error:', error)
+      Logger.error('Login error:', error)
       toast.error('Login failed. Please try again.')
     }
   }

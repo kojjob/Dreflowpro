@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { API_CONFIG } from "../config/dataConfig"
+import Logger from "../utils/logger"
 
 interface Connector {
   id: string
@@ -74,7 +75,7 @@ export default function ConnectorsPage() {
         setConnectors(data.connectors || [])
       }
     } catch (error) {
-      console.error('Failed to load connectors:', error)
+      Logger.error('Failed to load connectors:', error)
     } finally {
       setLoading(false)
     }
@@ -111,7 +112,7 @@ export default function ConnectorsPage() {
         })
       }
     } catch (error) {
-      console.error('Failed to create connector:', error)
+      Logger.error('Failed to create connector:', error)
     } finally {
       setCreating(false)
     }
@@ -130,7 +131,7 @@ export default function ConnectorsPage() {
         await loadConnectors() // Refresh to see updated status
       }
     } catch (error) {
-      console.error('Connection test failed:', error)
+      Logger.error('Connection test failed:', error)
     } finally {
       setTesting(null)
     }
@@ -148,7 +149,7 @@ export default function ConnectorsPage() {
         await loadConnectors()
       }
     } catch (error) {
-      console.error('Failed to delete connector:', error)
+      Logger.error('Failed to delete connector:', error)
     }
   }
 

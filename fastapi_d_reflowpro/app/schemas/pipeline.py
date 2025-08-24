@@ -152,7 +152,8 @@ class PipelineStepUpdate(BaseModel):
     transformation_type: Optional[TransformationTypeEnum] = None
     transformation_config: Optional[Dict[str, Any]] = None
 
-    @validator('step_type')
+    @field_validator('step_type')
+    @classmethod
     def validate_step_type(cls, v):
         if v is not None:
             allowed_types = ['source', 'transform', 'destination']
@@ -183,7 +184,8 @@ class PipelineBase(BaseModel, ValidatorMixin):
     timeout_minutes: Optional[int] = Field(60, ge=1, le=1440, description="Pipeline timeout in minutes")
     notification_config: Optional[Dict[str, Any]] = Field(None, description="Notification settings")
 
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         v = cls.sanitize_string_input(v.strip(), max_length=255)
         
@@ -196,25 +198,29 @@ class PipelineBase(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('description')
+    @field_validator('description')
+    @classmethod
     def validate_description(cls, v):
         if v is None:
             return v
         return cls.sanitize_string_input(v.strip(), max_length=2000)
     
-    @validator('schedule_cron')
+    @field_validator('schedule_cron')
+    @classmethod
     def validate_cron(cls, v):
         if v is None or not v.strip():
             return v
         return cls.validate_cron_expression(v.strip())
     
-    @validator('pipeline_config')
+    @field_validator('pipeline_config')
+    @classmethod
     def validate_pipeline_config(cls, v):
         if v is None:
             return v
         return cls.validate_json_data(v)
     
-    @validator('tags')
+    @field_validator('tags')
+    @classmethod
     def validate_tags(cls, v):
         if v is None:
             return v
@@ -245,7 +251,8 @@ class PipelineBase(BaseModel, ValidatorMixin):
         
         return list(dict.fromkeys(validated_tags))
     
-    @validator('notification_config')
+    @field_validator('notification_config')
+    @classmethod
     def validate_notification_config(cls, v):
         if v is None:
             return v
@@ -272,23 +279,20 @@ class PipelineBase(BaseModel, ValidatorMixin):
         
         return v
     
-    @root_validator
-    def validate_scheduling_consistency(cls, values):
-        is_scheduled = values.get('is_scheduled', False)
-        schedule_cron = values.get('schedule_cron')
-        
-        if is_scheduled and not schedule_cron:
+    @model_validator(mode='after')
+    def validate_scheduling_consistency(self):
+        if self.is_scheduled and not self.schedule_cron:
             raise ValidationError(
                 "Scheduled pipelines must have a cron expression",
                 field="schedule_cron",
                 code="SCHEDULE_CRON_REQUIRED"
             )
         
-        if not is_scheduled and schedule_cron:
+        if not self.is_scheduled and self.schedule_cron:
             # Auto-enable scheduling if cron is provided
-            values['is_scheduled'] = True
+            self.is_scheduled = True
         
-        return values
+        return self
 
 
 class PipelineCreate(PipelineBase):
@@ -305,7 +309,8 @@ class PipelineUpdate(BaseModel):
     tags: Optional[List[str]] = None
     steps: Optional[List[PipelineStepCreate]] = None
 
-    @validator('schedule_cron')
+    @field_validator('schedule_cron')
+    @classmethod
     def validate_cron(cls, v):
         if v is not None and v.strip():
             parts = v.strip().split()
@@ -401,7 +406,8 @@ class PipelineSearchRequest(BaseModel, ValidatorMixin):
     sort_by: Optional[str] = Field("created_at", description="Sort field")
     sort_order: Optional[str] = Field("desc", description="Sort order: asc, desc")
     
-    @validator('search')
+    @field_validator('search')
+    @classmethod
     def validate_search_term(cls, v):
         if v is None:
             return v
@@ -417,7 +423,8 @@ class PipelineSearchRequest(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('priority')
+    @field_validator('priority')
+    @classmethod
     def validate_priority_filter(cls, v):
         if v is None:
             return v
@@ -432,7 +439,8 @@ class PipelineSearchRequest(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('sort_by')
+    @field_validator('sort_by')
+    @classmethod
     def validate_sort_by(cls, v):
         valid_fields = ['name', 'created_at', 'updated_at', 'status', 'priority']
         if v not in valid_fields:
@@ -443,7 +451,8 @@ class PipelineSearchRequest(BaseModel, ValidatorMixin):
             )
         return v
     
-    @validator('sort_order')
+    @field_validator('sort_order')
+    @classmethod
     def validate_sort_order(cls, v):
         if v.lower() not in ['asc', 'desc']:
             raise ValidationError(
@@ -453,19 +462,16 @@ class PipelineSearchRequest(BaseModel, ValidatorMixin):
             )
         return v.lower()
     
-    @root_validator
-    def validate_date_range(cls, values):
-        created_after = values.get('created_after')
-        created_before = values.get('created_before')
-        
-        if created_after and created_before and created_after >= created_before:
+    @model_validator(mode='after')
+    def validate_date_range(self):
+        if self.created_after and self.created_before and self.created_after >= self.created_before:
             raise ValidationError(
                 "created_after must be before created_before",
                 field="created_after",
                 code="DATE_RANGE_INVALID"
             )
         
-        return values
+        return self
 
 
 class PipelineSearchResponse(BaseModel):
@@ -498,11 +504,13 @@ class PipelineValidationRequest(BaseModel, ValidatorMixin):
     steps: List[PipelineStepCreate] = Field(..., description="Steps to validate")
     validation_level: Optional[str] = Field("standard", description="Validation level: basic, standard, strict")
     
-    @validator('pipeline_config')
+    @field_validator('pipeline_config')
+    @classmethod
     def validate_pipeline_config(cls, v):
         return cls.validate_json_data(v)
     
-    @validator('steps')
+    @field_validator('steps')
+    @classmethod
     def validate_steps_order(cls, v):
         if not v:
             raise ValidationError("Pipeline must have at least one step", field="steps", code="STEPS_EMPTY")
@@ -527,7 +535,8 @@ class PipelineValidationRequest(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('validation_level')
+    @field_validator('validation_level')
+    @classmethod
     def validate_validation_level(cls, v):
         valid_levels = ['basic', 'standard', 'strict']
         if v not in valid_levels:
@@ -553,7 +562,8 @@ class PipelineTestRequest(BaseModel, ValidatorMixin):
     dry_run: Optional[bool] = Field(True, description="Whether this is a dry run (no data modification)")
     timeout_seconds: Optional[int] = Field(300, ge=30, le=3600, description="Test timeout in seconds")
     
-    @validator('test_data')
+    @field_validator('test_data')
+    @classmethod
     def validate_test_data(cls, v):
         if v is None:
             return v

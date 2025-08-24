@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Logger from '../../../utils/logger';
 
 // Mock connector data
 const mockConnectors = [
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching connectors:', error);
+    Logger.error('Error fetching connectors:', error);
     return NextResponse.json(
       {
         success: false,
@@ -200,7 +201,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Error creating connector:', error);
+    Logger.error('Error creating connector:', error);
     return NextResponse.json(
       {
         success: false,

@@ -4,6 +4,7 @@
  */
 
 import { cookies } from 'next/headers';
+import Logger from './logger';
 
 export interface SecureTokens {
   access_token: string;
@@ -134,7 +135,7 @@ class SecureStorage {
         localStorage.setItem('secure_expires_at', expiresAt.toString());
       }
     } catch (error) {
-      console.warn('Failed to store tokens in fallback storage:', error);
+      Logger.warn('Failed to store tokens in fallback storage:', error);
     }
   }
 
@@ -226,7 +227,7 @@ class SecureStorage {
         return tokens;
       }
     } catch (error) {
-      console.warn('Failed to migrate tokens from localStorage:', error);
+      Logger.warn('Failed to migrate tokens from localStorage:', error);
     }
 
     return null;

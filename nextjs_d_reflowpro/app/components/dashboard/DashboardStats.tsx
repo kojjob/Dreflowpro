@@ -11,6 +11,7 @@ import { useMultipleRealTimeData } from '../../hooks/useRealTimeData';
 import { SkeletonStats, SkeletonCard } from '../ui/Skeleton';
 import { AnimatedIcon, PulsingDot } from '../ui/AnimatedIcon';
 import PerformanceMonitor from '../ui/PerformanceMonitor';
+import Logger from '../../utils/logger';
 
 // Lazy load heavy modal components
 const PipelineCreationModal = lazy(() => import('../ui/ModalVariants').then(module => ({ default: module.PipelineCreationModal })));
@@ -115,7 +116,7 @@ const DashboardStats: React.FC = () => {
       interval: 120000, // 2 minutes - further reduced for better performance
       enabled: true,
       onError: (error) => {
-        console.warn('Real-time data fetch error (using mock data):', error);
+        Logger.warn('Real-time data fetch error (using mock data):', error);
         // Don't show error toast for network errors since we have fallback
       }
     }
@@ -225,17 +226,17 @@ const DashboardStats: React.FC = () => {
 
   // Modal submission handlers
   const handlePipelineSubmit = (data: { name: string; description: string }) => {
-    console.log('Pipeline created:', data);
+    Logger.log('Pipeline created:', data);
     // Here you would typically make an API call to create the pipeline
   };
 
   const handleDataSourceSubmit = (data: { type: string; name: string; config: any }) => {
-    console.log('Data source added:', data);
+    Logger.log('Data source added:', data);
     // Here you would typically make an API call to add the data source
   };
 
   const handleFileUpload = (files: FileList) => {
-    console.log('Files uploaded:', files);
+    Logger.log('Files uploaded:', files);
     // Here you would typically handle the file upload
   };
 

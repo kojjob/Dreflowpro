@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { useAuth } from "../contexts/AuthContext"
 import MainDashboard from "../components/dashboard/MainDashboard"
+import Logger from "../utils/logger"
 
 export default function DashboardPage() {
   const { user, loading } = useAuth()
 
-  console.log('🏠 Dashboard Page - Loading:', loading, 'User:', !!user)
+  Logger.log('🏠 Dashboard Page - Loading:', loading, 'User:', !!user)
 
   // Show simple loading for minimal delay
   if (loading) {

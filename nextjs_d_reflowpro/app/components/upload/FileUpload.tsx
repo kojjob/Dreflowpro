@@ -6,6 +6,7 @@ import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { UPLOAD_CONFIG, formatFileSize, isValidFileType } from '../../config/dataConfig';
 import { apiService } from '../../services/api';
+import Logger from '../../utils/logger';
 
 interface FileUploadProps {
   onFileUploaded: (result: any) => void;
@@ -47,7 +48,7 @@ export default function FileUpload({
           }
         }
       } catch (error) {
-        console.warn('Failed to load upload config, using defaults:', error);
+        Logger.warn('Failed to load upload config, using defaults:', error);
       }
     };
 
@@ -77,7 +78,7 @@ export default function FileUpload({
       onFileUploaded(result);
       
     } catch (error) {
-      console.error('Upload error:', error);
+      Logger.error('Upload error:', error);
       onError(error instanceof Error ? error.message : 'Upload failed');
     } finally {
       setUploading(false);

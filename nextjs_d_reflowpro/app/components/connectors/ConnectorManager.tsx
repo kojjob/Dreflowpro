@@ -5,6 +5,7 @@ import { apiService } from '../../services/api';
 import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Alert } from '../ui/Alert';
+import Logger from '../../utils/logger';
 import { 
   Database,
   Cloud,
@@ -156,7 +157,7 @@ const ConnectorManager: React.FC = () => {
       const connectorData = response.connectors || [];
       setConnectors(connectorData);
     } catch (err: any) {
-      console.error('Connector fetch error:', err);
+      Logger.error('Connector fetch error:', err);
       setError(err.message || 'Failed to load connectors');
       setConnectors([]); // Ensure connectors is always an array
     } finally {
@@ -244,7 +245,7 @@ const ConnectorManager: React.FC = () => {
       // Refresh connectors to update status
       await fetchConnectors();
     } catch (err: any) {
-      console.error('Connector test error:', err);
+      Logger.error('Connector test error:', err);
       setError(err.message || 'Failed to test connector');
     }
   };
@@ -258,7 +259,7 @@ const ConnectorManager: React.FC = () => {
         [connectorId]: data
       }));
     } catch (err: any) {
-      console.error('Data preview error:', err);
+      Logger.error('Data preview error:', err);
 
       // Provide more specific error messages
       let errorMessage = 'Failed to preview data';
@@ -289,7 +290,7 @@ const ConnectorManager: React.FC = () => {
       await apiService.deleteConnector(connectorId);
       await fetchConnectors();
     } catch (err: any) {
-      console.error('Connector deletion error:', err);
+      Logger.error('Connector deletion error:', err);
       setError(err.message || 'Failed to delete connector');
     }
   };
@@ -306,7 +307,7 @@ const ConnectorManager: React.FC = () => {
       setShowCreateForm(false);
       resetForm();
     } catch (err: any) {
-      console.error('Connector creation error:', err);
+      Logger.error('Connector creation error:', err);
       setError(err.message || 'Failed to create connector');
     } finally {
       setCreating(false);

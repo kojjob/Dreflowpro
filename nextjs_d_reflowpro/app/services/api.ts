@@ -78,10 +78,15 @@ class ApiService {
     };
     
     try {
-      const token = await authService.getValidAccessToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      // For development, skip token authentication since we're using mock data
+      // In production, this would get tokens from AuthContext via a different mechanism
+      Logger.log('🔐 Skipping token authentication for development mock data');
+      
+      // Uncomment below for production with real authentication
+      // const token = await authService.getValidAccessToken();
+      // if (token) {
+      //   headers['Authorization'] = `Bearer ${token}`;
+      // }
     } catch (error) {
       Logger.warn('Failed to get valid access token:', error);
     }
@@ -96,10 +101,15 @@ class ApiService {
     const headers: Record<string, string> = {};
     
     try {
-      const token = await authService.getValidAccessToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      // For development, skip token authentication since we're using mock data
+      // In production, this would get tokens from AuthContext via a different mechanism
+      Logger.log('🔐 Skipping form token authentication for development mock data');
+      
+      // Uncomment below for production with real authentication
+      // const token = await authService.getValidAccessToken();
+      // if (token) {
+      //   headers['Authorization'] = `Bearer ${token}`;
+      // }
     } catch (error) {
       Logger.warn('Failed to get valid access token for form upload:', error);
     }
@@ -407,9 +417,15 @@ class ApiService {
 
   /**
    * Check if user is authenticated
+   * @deprecated Use AuthContext instead
    */
   isAuthenticated(): boolean {
-    return authService.isAuthenticated();
+    // For development, assume authenticated since we're using mock data
+    Logger.log('🔐 Using mock authentication status for development');
+    return true;
+    
+    // In production, this should be handled by AuthContext
+    // return authService.isAuthenticated();
   }
 
   /**

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
+import Logger from '../../utils/logger';
 
 interface UserProfileDropdownProps {
   className?: string;
@@ -105,12 +106,12 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
     try {
       await logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      Logger.error('Logout error:', error);
     }
   };
 
   const handleNavigation = (tab: string) => {
-    console.log('🔗 Navigating to tab:', tab);
+    Logger.log('🔗 Navigating to tab:', tab);
     setIsOpen(false); // Close dropdown
     router.push(`/dashboard?tab=${tab}`);
   };
@@ -258,7 +259,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
                 <button
                   key={index}
                   onClick={() => {
-                    console.log('🖱️ Menu item clicked:', item.label);
+                    Logger.log('🖱️ Menu item clicked:', item.label);
                     item.action();
                   }}
                   className="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-blue-50 transition-all duration-200 text-left group"

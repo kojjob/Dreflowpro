@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Logger from '../../utils/logger';
 
 interface PerformanceMetrics {
   renderTime: number;
@@ -39,22 +40,20 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
     });
 
     // Log performance metrics
-    console.group(`🚀 Performance Metrics: ${componentName}`);
-    console.log(`⏱️ Render Time: ${renderTime.toFixed(2)}ms`);
-    console.log(`🧩 DOM Elements: ${componentCount}`);
+    Logger.log(`🚀 Performance Metrics: ${componentName}`);
+    Logger.log(`⏱️ Render Time: ${renderTime.toFixed(2)}ms`);
+    Logger.log(`🧩 DOM Elements: ${componentCount}`);
     if (memoryUsage) {
-      console.log(`💾 Memory Usage: ${(memoryUsage / 1024 / 1024).toFixed(2)}MB`);
+      Logger.log(`💾 Memory Usage: ${(memoryUsage / 1024 / 1024).toFixed(2)}MB`);
     }
     
     // Performance warnings
     if (renderTime > 100) {
-      console.warn(`⚠️ Slow render detected (${renderTime.toFixed(2)}ms)`);
+      Logger.warn(`⚠️ Slow render detected (${renderTime.toFixed(2)}ms)`);
     }
     if (componentCount > 1000) {
-      console.warn(`⚠️ High DOM complexity (${componentCount} elements)`);
+      Logger.warn(`⚠️ High DOM complexity (${componentCount} elements)`);
     }
-    
-    console.groupEnd();
   }, [componentName, enabled, startTime]);
 
   // Don't render anything in production

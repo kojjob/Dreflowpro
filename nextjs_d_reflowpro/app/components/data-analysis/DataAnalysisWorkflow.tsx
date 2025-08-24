@@ -7,6 +7,7 @@ import DataManipulation from './DataManipulation';
 import InsightsGeneration from './InsightsGeneration';
 import VisualizationDashboard from './VisualizationDashboard';
 import ExportSystem from './ExportSystem';
+import Logger from '../../utils/logger';
 
 interface UploadedFile {
   id: string;
@@ -153,7 +154,7 @@ const DataAnalysisWorkflow: React.FC = () => {
   }, []);
 
   const handleExport = useCallback((options: any) => {
-    console.log('Exporting with options:', options);
+    Logger.log('Exporting with options:', options);
 
     try {
       switch (options.format) {
@@ -176,7 +177,7 @@ const DataAnalysisWorkflow: React.FC = () => {
           generateJSONReport(options);
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      Logger.error('Export failed:', error);
       alert('Export failed. Please try again.');
     }
   }, [transformedData, charts, insights, statistics]);
@@ -405,7 +406,7 @@ const DataAnalysisWorkflow: React.FC = () => {
   };
 
   const handleShare = useCallback((options: { method: 'email' | 'link'; recipients?: string[] }) => {
-    console.log('Sharing with options:', options);
+    Logger.log('Sharing with options:', options);
     // In production, this would implement actual sharing functionality
     alert(`Sharing via ${options.method} - Feature coming soon!`);
   }, []);
@@ -429,7 +430,7 @@ const DataAnalysisWorkflow: React.FC = () => {
           <div className="space-y-6">
             <FileUploadSystem
               onFileUploaded={handleFileUploaded}
-              onFileAnalyzed={(file) => console.log('File analyzed:', file)}
+              onFileAnalyzed={(file) => Logger.log('File analyzed:', file)}
             />
             
             {uploadedFiles.length > 0 && (
@@ -475,7 +476,7 @@ const DataAnalysisWorkflow: React.FC = () => {
             data={selectedFile.preview || []}
             columns={selectedFile.schema.columns}
             onDataChanged={handleDataChanged}
-            onExport={(data, format) => console.log('Export data:', { data, format })}
+            onExport={(data, format) => Logger.log('Export data:', { data, format })}
           />
         ) : (
           <div className="text-center py-8">
@@ -503,7 +504,7 @@ const DataAnalysisWorkflow: React.FC = () => {
           <VisualizationDashboard
             data={transformedData.length > 0 ? transformedData : selectedFile.preview || []}
             columns={selectedFile.schema.columns}
-            onExportDashboard={(format) => console.log('Export dashboard:', format)}
+            onExportDashboard={(format) => Logger.log('Export dashboard:', format)}
           />
         ) : (
           <div className="text-center py-8">

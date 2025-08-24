@@ -34,6 +34,111 @@ from ....schemas.auth import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="User Login",
+    description="""
+    Authenticate user with email and password.
+    
+    **Security Features:**
+    - **Rate Limiting**: Prevents brute force attacks
+    - **Token Rotation**: Secure refresh token family system
+    - **Audit Logging**: All login attempts are logged
+    - **Breach Detection**: Monitors for suspicious activity
+    
+    **Response:** JWT access token with refresh token for extended sessions
+    """)
+@rate_limit_login
+async def login(
+    user_data: UserLogin,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """Authenticate user and return JWT tokens."""
+    ip_address = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    
+    try:
+        # Authenticate user
+        user = await AuthService.authenticate_user(db, user_data.email, user_data.password)
+        
+        if not user:
+            # Log failed login attempt
+            await log_user_login(
+                user_id=None, 
+                session_id=None,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=False,
+                db=db
+            )
+            
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": "INVALID_CREDENTIALS",
+                    "message": "Invalid email or password"
+                }
+            )
+        
+        # Create token family with device info
+        device_info = {
+            "ip_address": ip_address,
+            "user_agent": user_agent,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Generate tokens
+        token_result = await token_rotation_manager.create_token_family(user, db, device_info)
+        
+        if not token_result.success:
+            logger.error(f"Token creation failed: {token_result.error_code}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Token generation failed"
+            )
+        
+        # Log successful login
+        await log_user_login(
+            user_id=str(user.id),
+            session_id=token_result.family_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=True,
+            db=db
+        )
+        
+        return TokenResponse(
+            access_token=token_result.access_token,
+            refresh_token=token_result.refresh_token,
+            token_type="bearer",
+            expires_in=3600
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        
+        # Log security event for unexpected errors
+        await audit_logger.log_event(
+            event_type=AuditEventType.USER_LOGIN_FAILED,
+            message=f"Login system error: {str(e)}",
+            severity=AuditSeverity.HIGH,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            outcome="ERROR",
+            details={"error": str(e)},
+            db=db
+        )
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service error"
+        )
+
 @router.post(
     "/register",
     response_model=TokenResponse,

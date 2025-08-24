@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardStats from './DashboardStats';
+import Logger from '../../utils/logger';
 
 import UserProfileDropdown from '../ui/UserProfileDropdown';
 import NotificationsDropdown from '../ui/NotificationsDropdown';
@@ -54,12 +55,12 @@ const MainDashboard: React.FC = () => {
   // Handle URL parameters for direct navigation
   useEffect(() => {
     const tab = searchParams.get('tab');
-    console.log('📍 URL tab parameter:', tab);
+    Logger.log('📍 URL tab parameter:', tab);
     if (tab && ['overview', 'pipelines', 'connectors', 'data-analysis', 'tasks', 'ai-insights', 'profile', 'preferences', 'billing', 'help'].includes(tab)) {
-      console.log('✅ Setting active view to:', tab);
+      Logger.log('✅ Setting active view to:', tab);
       setActiveView(tab);
     } else if (tab) {
-      console.log('❌ Invalid tab:', tab);
+      Logger.log('❌ Invalid tab:', tab);
     }
   }, [searchParams]);
 

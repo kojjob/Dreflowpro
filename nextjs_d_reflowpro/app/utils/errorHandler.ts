@@ -341,7 +341,7 @@ export class ErrorHandler {
     switch (error.severity) {
       case ErrorSeverity.CRITICAL:
         Logger.error('🚨 CRITICAL ERROR:', logData);
-        console.error('Error Stack:', error.stack);
+        Logger.error('Error Stack:', error.stack);
         break;
       case ErrorSeverity.HIGH:
         Logger.error('❌ High Severity Error:', logData);

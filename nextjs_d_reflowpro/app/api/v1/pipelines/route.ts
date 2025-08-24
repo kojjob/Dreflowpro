@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Logger from '../../../utils/logger';
 
 // Mock pipeline data
 const mockPipelines = [
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching pipelines:', error);
+    Logger.error('Error fetching pipelines:', error);
     return NextResponse.json(
       {
         success: false,
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Error creating pipeline:', error);
+    Logger.error('Error creating pipeline:', error);
     return NextResponse.json(
       {
         success: false,

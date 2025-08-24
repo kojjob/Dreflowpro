@@ -19,6 +19,8 @@ from app.api.v1.router import router as v1_router
 
 # Import middleware
 from app.middleware.rate_limiting import GlobalRateLimitMiddleware, APIRateLimitMiddleware
+from app.middleware.csrf_protection import CSRFProtectionMiddleware
+from app.middleware.audit_middleware import AuditLoggingMiddleware, SecurityAuditMiddleware
 
 
 @asynccontextmanager
@@ -71,6 +73,35 @@ app.add_middleware(
     APIRateLimitMiddleware,
     max_requests=1000,  # 1000 API requests per hour
     window_seconds=3600
+)
+
+# CSRF protection middleware (added after rate limiting)
+app.add_middleware(
+    CSRFProtectionMiddleware,
+    token_expiry=3600,  # 1 hour token expiry
+    protected_methods={"POST", "PUT", "DELETE", "PATCH"},
+    exempt_paths={
+        "/docs", "/redoc", "/openapi.json", "/health", "/",
+        "/api/v1/auth/login", "/api/v1/auth/register",
+        "/api/v1/auth/refresh", "/api/v1/auth/forgot-password",
+        "/api/v1/auth/reset-password", "/api/v1/auth/verify-email"
+    },
+    cookie_secure=not settings.DEBUG,  # Secure cookies in production only
+    cookie_samesite="lax"
+)
+
+# Security audit middleware (monitors for suspicious activity)
+app.add_middleware(SecurityAuditMiddleware)
+
+# Comprehensive audit logging middleware
+app.add_middleware(
+    AuditLoggingMiddleware,
+    log_request_body=False,  # Set to True for detailed logging (impacts performance)
+    log_response_body=False,  # Set to True for response logging
+    excluded_paths={
+        "/health", "/docs", "/redoc", "/openapi.json", "/favicon.ico", "/static",
+        "/uploads"  # Exclude file uploads from detailed logging
+    }
 )
 
 # CORS middleware

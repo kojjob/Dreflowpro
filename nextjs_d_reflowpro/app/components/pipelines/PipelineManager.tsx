@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Alert } from '../ui/Alert';
+import Logger from '../../utils/logger';
 import {
   Play,
   StopCircle,
@@ -205,14 +206,14 @@ const PipelineManager: React.FC = () => {
 
       // Check if user has valid authentication before making API calls
       if (!isAuthenticated) {
-        console.log('No valid authentication found, user needs to log in');
+        Logger.log('No valid authentication found, user needs to log in');
         setError('Please log in to view pipelines.');
         setPipelines([]);
         setLoading(false);
         return;
       }
 
-      console.log('🔧 Loading mock pipeline data');
+      Logger.log('🔧 Loading mock pipeline data');
 
       // Use mock pipeline data to avoid API calls
       const mockPipelines = [
@@ -262,7 +263,7 @@ const PipelineManager: React.FC = () => {
       setExecutions(mockExecutions as any);
       
     } catch (err: unknown) {
-      console.error('Pipeline fetch error:', err);
+      Logger.error('Pipeline fetch error:', err);
 
       // Handle authentication errors specifically
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -325,18 +326,18 @@ const PipelineManager: React.FC = () => {
       // Try to execute pipeline via API
       try {
         await apiService.executePipeline(pipelineId);
-        console.log('✅ Pipeline executed successfully via API');
+        Logger.log('✅ Pipeline executed successfully via API');
 
         // Refresh pipelines to show updated status
         await fetchPipelines();
       } catch (apiError) {
-        console.warn('Pipeline execution API not available, running mock execution');
+        Logger.warn('Pipeline execution API not available, running mock execution');
 
         // Fallback to mock execution until API is implemented
         await mockPipelineExecution(pipelineId);
       }
     } catch (err) {
-      console.error('Pipeline execution error:', err);
+      Logger.error('Pipeline execution error:', err);
       setError('Failed to execute pipeline');
     }
   };
@@ -347,7 +348,7 @@ const PipelineManager: React.FC = () => {
       throw new Error('Pipeline not found');
     }
 
-    console.log(`🚀 Starting mock execution for pipeline: ${pipeline.name}`);
+    Logger.log(`🚀 Starting mock execution for pipeline: ${pipeline.name}`);
 
     // Update pipeline status to running
     setPipelines(prevPipelines =>
@@ -362,34 +363,34 @@ const PipelineManager: React.FC = () => {
     const steps = getPipelineSteps(pipeline);
     const totalSteps = steps.length;
 
-    console.log(`📊 Executing ${totalSteps} pipeline steps:`);
+    Logger.log(`📊 Executing ${totalSteps} pipeline steps:`);
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const progress = ((i + 1) / totalSteps * 100).toFixed(0);
 
-      console.log(`   Step ${i + 1}/${totalSteps} (${progress}%): ${step.step_name}`);
+      Logger.log(`   Step ${i + 1}/${totalSteps} (${progress}%): ${step.step_name}`);
 
       // Simulate step execution time
       await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
 
       // Simulate step-specific processing
       if (step.step_type === 'source') {
-        console.log(`     📥 Fetching data from ${step.step_name}`);
-        console.log(`     ✅ Retrieved ${Math.floor(Math.random() * 10000 + 1000)} records`);
+        Logger.log(`     📥 Fetching data from ${step.step_name}`);
+        Logger.log(`     ✅ Retrieved ${Math.floor(Math.random() * 10000 + 1000)} records`);
       } else if (step.step_type === 'transform') {
-        console.log(`     ⚙️ Applying ${step.transformation_type} transformation`);
+        Logger.log(`     ⚙️ Applying ${step.transformation_type} transformation`);
         if (step.transformation_type === 'filter') {
           const filtered = Math.floor(Math.random() * 3000 + 500);
-          console.log(`     ✅ Filtered to ${filtered} records`);
+          Logger.log(`     ✅ Filtered to ${filtered} records`);
         } else if (step.transformation_type === 'aggregate') {
-          console.log(`     ✅ Aggregated data into ${Math.floor(Math.random() * 50 + 10)} groups`);
+          Logger.log(`     ✅ Aggregated data into ${Math.floor(Math.random() * 50 + 10)} groups`);
         } else {
-          console.log(`     ✅ Transformation completed successfully`);
+          Logger.log(`     ✅ Transformation completed successfully`);
         }
       } else if (step.step_type === 'destination') {
-        console.log(`     📤 Writing data to ${step.step_name}`);
-        console.log(`     ✅ Successfully wrote ${Math.floor(Math.random() * 5000 + 1000)} records`);
+        Logger.log(`     📤 Writing data to ${step.step_name}`);
+        Logger.log(`     ✅ Successfully wrote ${Math.floor(Math.random() * 5000 + 1000)} records`);
       }
     }
 
@@ -398,10 +399,10 @@ const PipelineManager: React.FC = () => {
     const processedRows = Math.floor(Math.random() * 50000 + 10000);
     const successRate = 95 + Math.random() * 5; // 95-100%
 
-    console.log(`🎉 Pipeline execution completed successfully!`);
-    console.log(`   ⏱️ Execution time: ${executionTime} seconds`);
-    console.log(`   📊 Processed rows: ${processedRows.toLocaleString()}`);
-    console.log(`   ✅ Success rate: ${successRate.toFixed(1)}%`);
+    Logger.log(`🎉 Pipeline execution completed successfully!`);
+    Logger.log(`   ⏱️ Execution time: ${executionTime} seconds`);
+    Logger.log(`   📊 Processed rows: ${processedRows.toLocaleString()}`);
+    Logger.log(`   ✅ Success rate: ${successRate.toFixed(1)}%`);
 
     // Update pipeline status to active and add mock execution data
     setPipelines(prevPipelines =>
@@ -445,7 +446,7 @@ const PipelineManager: React.FC = () => {
       await apiService.deletePipeline(pipelineId);
       await fetchPipelines();
     } catch (err) {
-      console.error('Pipeline deletion error:', err);
+      Logger.error('Pipeline deletion error:', err);
       setError('Failed to delete pipeline');
     }
   };
@@ -455,7 +456,7 @@ const PipelineManager: React.FC = () => {
       await apiService.cancelExecution(pipelineId, executionId);
       await fetchPipelines();
     } catch (err) {
-      console.error('Execution cancellation error:', err);
+      Logger.error('Execution cancellation error:', err);
       setError('Failed to cancel execution');
     }
   };
@@ -467,7 +468,7 @@ const PipelineManager: React.FC = () => {
       const response = await apiService.getConnectors();
       setConnectors(response.connectors || []);
     } catch (err) {
-      console.error('Failed to fetch connectors:', err);
+      Logger.error('Failed to fetch connectors:', err);
       setConnectors([]);
     } finally {
       setLoadingConnectors(false);
@@ -519,7 +520,7 @@ const PipelineManager: React.FC = () => {
       setShowCreateForm(false);
       resetForm();
     } catch (err: unknown) {
-      console.error('Pipeline creation error:', err);
+      Logger.error('Pipeline creation error:', err);
       setError(err instanceof Error ? err.message : 'Failed to create pipeline');
     } finally {
       setCreating(false);
@@ -604,7 +605,7 @@ const PipelineManager: React.FC = () => {
   };
 
   const fetchTransformationTemplates = () => {
-    console.log('🔧 Loading mock transformation templates');
+    Logger.log('🔧 Loading mock transformation templates');
     // Use mock transformation templates to avoid API calls
     const mockTemplates = [
       {
@@ -693,14 +694,14 @@ const PipelineManager: React.FC = () => {
 
         setStepPreview(previewData as any);
       } catch (apiError) {
-        console.warn('Preview endpoint not available, generating mock preview data');
+        Logger.warn('Preview endpoint not available, generating mock preview data');
 
         // Generate mock preview data until API is implemented
         const mockPreview = generateMockPreviewData(step);
         setStepPreview(mockPreview);
       }
     } catch (err) {
-      console.error('Failed to fetch step preview:', err);
+      Logger.error('Failed to fetch step preview:', err);
       setStepPreview(null);
     } finally {
       setLoadingPreview(false);
@@ -765,7 +766,7 @@ const PipelineManager: React.FC = () => {
       // First try to get the connector details to understand its type
       const connector = connectors.find(c => c.id === connectorId);
       if (!connector) {
-        console.warn('Connector not found:', connectorId);
+        Logger.warn('Connector not found:', connectorId);
         setAvailableFields([]);
         return;
       }
@@ -775,14 +776,14 @@ const PipelineManager: React.FC = () => {
         const schema = await apiService.get(`/api/v1/connectors/${connectorId}/schema`);
         setAvailableFields(schema.fields || []);
       } catch (apiError) {
-        console.warn('Schema endpoint not available, using mock fields for connector type:', connector.type);
+        Logger.warn('Schema endpoint not available, using mock fields for connector type:', connector.type);
 
         // Provide mock fields based on connector type until API is implemented
         const mockFields = getMockFieldsForConnectorType(connector.type);
         setAvailableFields(mockFields);
       }
     } catch (err) {
-      console.error('Failed to fetch available fields:', err);
+      Logger.error('Failed to fetch available fields:', err);
       setAvailableFields([]);
     }
   };
@@ -842,14 +843,14 @@ const PipelineManager: React.FC = () => {
 
         setValidationResults(validation as {errors: string[]; warnings: string[]; suggestions: string[]});
       } catch (apiError) {
-        console.warn('Validation endpoint not available, performing client-side validation');
+        Logger.warn('Validation endpoint not available, performing client-side validation');
 
         // Perform client-side validation until API is implemented
         const clientValidation = performClientSideValidation(step);
         setValidationResults(clientValidation);
       }
     } catch (err) {
-      console.error('Failed to validate step:', err);
+      Logger.error('Failed to validate step:', err);
       setValidationResults({
         errors: ['Failed to validate step configuration'],
         warnings: [],
@@ -1021,7 +1022,7 @@ const PipelineManager: React.FC = () => {
       setSelectedPipeline(null);
       resetForm();
     } catch (err: unknown) {
-      console.error('Pipeline update error:', err);
+      Logger.error('Pipeline update error:', err);
       setError(err instanceof Error ? err.message : 'Failed to update pipeline');
     } finally {
       setUpdating(false);
