@@ -5,6 +5,7 @@ from .tasks.router import router as tasks_router
 from .pipelines import router as pipelines_router
 from .data.router import router as data_router
 from .config.router import router as config_router
+from .audit.router import router as audit_router
 
 # Create the main v1 router
 router = APIRouter(prefix="/api/v1")
@@ -16,3 +17,4 @@ router.include_router(tasks_router, tags=["background_tasks"])
 router.include_router(pipelines_router, tags=["pipelines"])
 router.include_router(data_router, tags=["data"])
 router.include_router(config_router, tags=["configuration"])
+router.include_router(audit_router, tags=["audit"])

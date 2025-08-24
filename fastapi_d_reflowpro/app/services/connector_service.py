@@ -20,6 +20,10 @@ from ..schemas.connector import (
 )
 from .connectors.postgres_connector import PostgreSQLConnector
 from .connectors.mysql_connector import MySQLConnector
+from .connectors.csv_connector import CSVConnector
+from .connectors.excel_connector import ExcelConnector
+from .connectors.json_connector import JSONConnector
+from .connectors.text_connector import TextConnector
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +257,10 @@ class ConnectorService:
                         message=f"Connection failed: {str(conn_error)}"
                     )
             
+            elif connector_type in [ConnectorType.FILE_UPLOAD, ConnectorType.CSV, ConnectorType.EXCEL, ConnectorType.JSON]:
+                # Handle file-based connectors
+                return await self._test_file_connector(connector_type, connection_config, start_time)
+
             else:
                 return ConnectorTestResponse(
                     success=False,
@@ -265,7 +273,92 @@ class ConnectorService:
                 success=False,
                 message=f"Test failed: {str(e)}"
             )
-    
+
+    async def _test_file_connector(
+        self,
+        connector_type: ConnectorType,
+        connection_config: Dict[str, Any],
+        start_time: datetime
+    ) -> ConnectorTestResponse:
+        """Test a file-based connector."""
+        try:
+            # Determine the appropriate connector class
+            connector_instance = None
+
+            if connector_type == ConnectorType.CSV:
+                connector_instance = CSVConnector(connection_config)
+            elif connector_type == ConnectorType.EXCEL:
+                connector_instance = ExcelConnector(connection_config)
+            elif connector_type == ConnectorType.JSON:
+                connector_instance = JSONConnector(connection_config)
+            elif connector_type == ConnectorType.FILE_UPLOAD:
+                # For file upload, determine type from file extension or config
+                file_type = connection_config.get('file_type', '').lower()
+                if file_type in ['csv']:
+                    connector_instance = CSVConnector(connection_config)
+                elif file_type in ['xlsx', 'xls']:
+                    connector_instance = ExcelConnector(connection_config)
+                elif file_type in ['json']:
+                    connector_instance = JSONConnector(connection_config)
+                else:
+                    return ConnectorTestResponse(
+                        success=False,
+                        message=f"Unsupported file type: {file_type}"
+                    )
+
+            if not connector_instance:
+                return ConnectorTestResponse(
+                    success=False,
+                    message=f"Could not create connector instance for type: {connector_type}"
+                )
+
+            # Test the connection
+            connection_result = await connector_instance.test_connection()
+
+            if connection_result.get("status") != "success":
+                return ConnectorTestResponse(
+                    success=False,
+                    message=f"Connection test failed: {connection_result.get('error', 'Unknown error')}"
+                )
+
+            # Get sample data
+            sample_data = None
+            schema_preview = None
+
+            try:
+                # Try to get a small sample of data
+                sample_df = await connector_instance._read_dataframe(preview_rows=5)
+                if not sample_df.empty:
+                    sample_data = sample_df.to_dict('records')
+
+                    # Create schema preview
+                    schema_preview = {
+                        "columns": list(sample_df.columns),
+                        "column_count": len(sample_df.columns),
+                        "row_count": len(sample_df),
+                        "file_type": connector_type.value
+                    }
+            except Exception as sample_error:
+                logger.warning(f"Failed to get sample data from file connector: {sample_error}")
+                # Don't fail the test if we can't get sample data
+
+            connection_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+
+            return ConnectorTestResponse(
+                success=True,
+                message="File connection successful",
+                connection_time_ms=connection_time,
+                schema_preview=schema_preview,
+                sample_data=sample_data
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to test file connector: {str(e)}")
+            return ConnectorTestResponse(
+                success=False,
+                message=f"File test failed: {str(e)}"
+            )
+
     async def create_data_preview(
         self, 
         connector_id: UUID, 
@@ -306,6 +399,41 @@ class ConnectorService:
             return result.scalar_one_or_none()
         except Exception as e:
             logger.error(f"Failed to get data preview for connector {connector_id}: {str(e)}")
+            raise
+
+    async def update_data_preview(
+        self,
+        preview_id: UUID,
+        sample_data: List[Dict[str, Any]],
+        row_count: Optional[int] = None,
+        column_info: Optional[Dict[str, Any]] = None
+    ) -> DataPreview:
+        """Update an existing data preview."""
+        try:
+            result = await self.db.execute(
+                select(DataPreview).where(DataPreview.id == preview_id)
+            )
+            preview = result.scalar_one_or_none()
+
+            if not preview:
+                raise ValueError(f"Data preview {preview_id} not found")
+
+            # Update the preview data
+            preview.preview_data = sample_data
+            if row_count is not None:
+                preview.row_count = row_count
+            if column_info is not None:
+                preview.column_info = column_info
+
+            await self.db.commit()
+            await self.db.refresh(preview)
+
+            logger.info(f"Updated data preview {preview_id}")
+            return preview
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update data preview {preview_id}: {str(e)}")
             raise
     
     async def update_connector_status(

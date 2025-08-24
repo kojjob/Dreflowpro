@@ -33,8 +33,8 @@ class DataConnector(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    type = Column(Enum(ConnectorType), nullable=False)
-    status = Column(Enum(ConnectorStatus), default=ConnectorStatus.INACTIVE)
+    type = Column(Enum(ConnectorType), nullable=False, index=True)
+    status = Column(Enum(ConnectorStatus), default=ConnectorStatus.INACTIVE, index=True)
     
     # Connection configuration (encrypted in production)
     connection_config = Column(JSON, nullable=True)
@@ -45,20 +45,20 @@ class DataConnector(Base):
     # File-specific fields
     file_path = Column(String(500), nullable=True)
     file_size = Column(Integer, nullable=True)
-    file_type = Column(String(50), nullable=True)
+    file_type = Column(String(50), nullable=True, index=True)
     
     # Metadata
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"))
-    created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     last_tested = Column(DateTime(timezone=True), nullable=True)
-    last_used = Column(DateTime(timezone=True), nullable=True)
+    last_used = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    organization = relationship("Organization", back_populates="connectors")
+    # Relationships - Phase 1: Comment out relationships to non-existent Phase 2 models
+    # organization = relationship("Organization", back_populates="connectors")  # Phase 2
     created_by = relationship("User")
-    pipeline_steps = relationship("PipelineStep", back_populates="source_connector")
+    # pipeline_steps = relationship("PipelineStep", back_populates="source_connector")  # Phase 2
 
 
 class DataPreview(Base):

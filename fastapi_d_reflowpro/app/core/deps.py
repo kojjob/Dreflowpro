@@ -1,5 +1,5 @@
 from typing import Generator, Optional, Annotated
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,21 @@ from ..models.user import User, UserRole
 
 # Security scheme
 security = HTTPBearer(auto_error=False)
+
+# Extract current token from request
+async def get_current_token(request: Request) -> Optional[str]:
+    """Extract the current JWT token from the request."""
+    auth_header = request.headers.get("authorization")
+    if not auth_header:
+        return None
+    
+    # Check for Bearer token format
+    if not auth_header.startswith("Bearer "):
+        return None
+    
+    # Extract token (remove "Bearer " prefix)
+    token = auth_header[7:]
+    return token if token else None
 
 # Current user dependency
 async def get_current_user(
@@ -77,6 +92,9 @@ def get_admin_user(current_user: Annotated[User, Depends(get_current_user)]) -> 
     if current_user.role != UserRole.ADMIN:
         raise AuthorizationError("Admin access required")
     return current_user
+
+# Alias for consistency with other frameworks
+require_admin_access = get_admin_user
 
 # Editor or admin access
 def get_editor_user(current_user: Annotated[User, Depends(get_current_user)]) -> User:

@@ -1,49 +1,26 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { authService, AuthState } from "../services/auth"
+import { useAuth } from "../contexts/AuthContext"
 import MainDashboard from "../components/dashboard/MainDashboard"
+import Logger from "../utils/logger"
 
 export default function DashboardPage() {
-  const [authState, setAuthState] = useState<AuthState>({
-    isAuthenticated: false,
-    user: null,
-    tokens: null,
-    isLoading: true,
-    error: null,
-  })
-  const router = useRouter()
+  const { user, loading } = useAuth()
 
-  useEffect(() => {
-    // Subscribe to auth state changes
-    const unsubscribe = authService.subscribe((newAuthState) => {
-      setAuthState(newAuthState)
-      
-      // Redirect to login if not authenticated
-      if (!newAuthState.isLoading && !newAuthState.isAuthenticated) {
-        router.push('/login')
-      }
-    })
+  Logger.log('🏠 Dashboard Page - Loading:', loading, 'User:', !!user)
 
-    return unsubscribe
-  }, [router])
-
-  if (authState.isLoading) {
+  // Show simple loading for minimal delay
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <motion.div
-          className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     )
-  }
-
-  if (!authState.isAuthenticated) {
-    return null; // Will redirect in useEffect
   }
 
   return <MainDashboard />

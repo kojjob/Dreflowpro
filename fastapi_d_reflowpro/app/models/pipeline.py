@@ -53,21 +53,21 @@ class ETLPipeline(Base):
     
     # Scheduling
     schedule_cron = Column(String(100), nullable=True)  # Cron expression
-    is_scheduled = Column(Boolean, default=False)
-    next_run = Column(DateTime(timezone=True), nullable=True)
+    is_scheduled = Column(Boolean, default=False, index=True)
+    next_run = Column(DateTime(timezone=True), nullable=True, index=True)
     
     # Metadata
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"))
-    created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     tags = Column(JSON, nullable=True)  # Array of tags
     version = Column(Integer, default=1)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    organization = relationship("Organization", back_populates="pipelines")
-    created_by = relationship("User", back_populates="created_pipelines")
+    # Relationships - Phase 1: Comment out relationships to non-existent Phase 2 models
+    # organization = relationship("Organization", back_populates="pipelines")  # Phase 2
+    # created_by = relationship("User", back_populates="created_pipelines")  # Phase 2 
     steps = relationship("PipelineStep", back_populates="pipeline", cascade="all, delete-orphan")
     executions = relationship("PipelineExecution", back_populates="pipeline")
 
@@ -77,19 +77,19 @@ class PipelineStep(Base):
     __tablename__ = "pipeline_steps"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("etl_pipelines.id"))
-    step_order = Column(Integer, nullable=False)
-    step_type = Column(String(50), nullable=False)  # source, transform, destination
+    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("etl_pipelines.id"), index=True)
+    step_order = Column(Integer, nullable=False, index=True)
+    step_type = Column(String(50), nullable=False, index=True)  # source, transform, destination
     step_name = Column(String(255), nullable=False)
     
     # Configuration for this step
     step_config = Column(JSON, nullable=False)
     
     # For source steps
-    source_connector_id = Column(UUID(as_uuid=True), ForeignKey("data_connectors.id"), nullable=True)
+    source_connector_id = Column(UUID(as_uuid=True), ForeignKey("data_connectors.id"), nullable=True, index=True)
     
     # Transformation details
-    transformation_type = Column(Enum(TransformationType), nullable=True)
+    transformation_type = Column(Enum(TransformationType), nullable=True, index=True)
     transformation_config = Column(JSON, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -104,13 +104,13 @@ class PipelineExecution(Base):
     __tablename__ = "pipeline_executions"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("etl_pipelines.id"))
-    status = Column(Enum(ExecutionStatus), default=ExecutionStatus.PENDING)
+    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("etl_pipelines.id"), index=True)
+    status = Column(Enum(ExecutionStatus), default=ExecutionStatus.PENDING, index=True)
     
     # Execution details
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    started_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    started_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     
     # Results and logging
     rows_processed = Column(Integer, default=0)
@@ -121,7 +121,7 @@ class PipelineExecution(Base):
     execution_metrics = Column(JSON, nullable=True)  # Duration, memory, etc.
     
     # Trigger information
-    trigger_type = Column(String(50), nullable=True)  # manual, scheduled, webhook
+    trigger_type = Column(String(50), nullable=True, index=True)  # manual, scheduled, webhook
     trigger_data = Column(JSON, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

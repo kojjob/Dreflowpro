@@ -3,6 +3,8 @@
  * Provides JWT token decoding and validation functionality
  */
 
+import Logger from './logger';
+
 export interface JWTPayload {
   exp?: number;
   iat?: number;
@@ -27,7 +29,7 @@ export function decodeJWT(token: string): JWTPayload | null {
     const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
     return JSON.parse(decoded);
   } catch (error) {
-    console.warn('Failed to decode JWT:', error);
+    Logger.warn('Failed to decode JWT:', error);
     return null;
   }
 }
