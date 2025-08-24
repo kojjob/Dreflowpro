@@ -66,7 +66,7 @@ class AuthService {
     this.baseUrl = API_CONFIG.baseUrl;
 
     // DISABLED: Skip initialization to prevent API calls
-    console.log('🚫 Old AuthService disabled - using AuthContext instead');
+    Logger.log('🚫 Old AuthService disabled - using AuthContext instead');
 
     // Set a mock state to prevent errors
     this.state = {
@@ -297,7 +297,7 @@ class AuthService {
       // Create mock tokens
       const mockTokens: AuthTokens = {
         access_token: this.generateMockToken(credentials.email),
-        refresh_token: 'mock_refresh_token_' + Date.now(),
+        refresh_token: 'dev_test_refresh_token_' + Date.now(),
         token_type: 'bearer',
         expires_in: 3600
       };
@@ -408,7 +408,7 @@ class AuthService {
       // Create mock tokens and auto-login
       const mockTokens: AuthTokens = {
         access_token: this.generateMockToken(data.email),
-        refresh_token: 'mock_refresh_token_' + Date.now(),
+        refresh_token: 'dev_test_refresh_token_' + Date.now(),
         token_type: 'bearer',
         expires_in: 3600
       };
@@ -447,7 +447,7 @@ class AuthService {
    * Refresh access token using refresh token
    */
   async refreshAccessToken(): Promise<AuthTokens> {
-    console.log('🚫 RefreshAccessToken disabled - using AuthContext instead');
+    Logger.log('🚫 RefreshAccessToken disabled - using AuthContext instead');
     throw new Error('Old AuthService disabled - use AuthContext instead');
 
     this.refreshPromise = (async () => {

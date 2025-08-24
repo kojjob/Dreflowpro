@@ -23,6 +23,7 @@ from ....core.rate_limiter import (
     rate_limit_password_reset,
     rate_limit_api
 )
+from ....core.audit_logger import log_user_login, audit_logger, AuditEventType, AuditSeverity
 from ....models.user import User, Organization, APIKey, UserRole
 from ....schemas.auth import (
     UserLogin, UserRegister, TokenResponse, TokenRefresh, AccessTokenResponse,
@@ -74,8 +75,8 @@ logger = logging.getLogger(__name__)
             "content": {
                 "application/json": {
                     "example": {
-                        "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-                        "refresh_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "access_token": "example_access_token_here",
+                        "refresh_token": "example_refresh_token_here",
                         "token_type": "bearer",
                         "expires_in": 3600,
                         "user": {
@@ -320,8 +321,8 @@ async def register(
             "content": {
                 "application/json": {
                     "example": {
-                        "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-                        "refresh_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "access_token": "example_access_token_here",
+                        "refresh_token": "example_refresh_token_here",
                         "token_type": "bearer",
                         "expires_in": 3600,
                         "user": {
@@ -1086,3 +1087,24 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Password reset failed"
         )
+
+@router.get("/csrf-token", 
+           summary="Get CSRF Token",
+           description="""
+           Get CSRF token for client-side applications to include in POST/PUT/DELETE requests.
+           
+           **CSRF Protection:**
+           - **Double Submit Pattern**: Token must be included in both cookie and header
+           - **Token Rotation**: New token generated after each successful request
+           - **Secure Generation**: Cryptographically secure tokens with HMAC validation
+           - **Expiration**: Tokens expire after 1 hour for security
+           
+           **Usage:**
+           1. Call this endpoint to get initial CSRF token
+           2. Include token in X-CSRF-Token header for protected requests
+           3. Cookie will be automatically set and validated
+           """)
+async def get_csrf_token(request: Request):
+    """Get CSRF token for AJAX applications."""
+    from ....middleware.csrf_protection import get_csrf_token_endpoint
+    return await get_csrf_token_endpoint(request)
