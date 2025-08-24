@@ -153,16 +153,39 @@ class ApiService {
         } catch (refreshError) {
           // Token refresh failed, redirect to login
           console.error('Token refresh failed:', refreshError);
-          authService.logout();
-          
-          // Reject all queued requests
-          const queue = [...this.requestQueue];
-          this.requestQueue = [];
-          queue.forEach(({ reject }) => {
-            reject(new Error('Authentication failed'));
-          });
-          
-          throw new Error('Authentication failed');
+
+          // Determine if this is a session expiry or other error
+          const errorMessage = refreshError instanceof Error ? refreshError.message : String(refreshError);
+          const isSessionExpired = errorMessage.includes('Token refresh failed') ||
+                                   errorMessage.includes('Invalid refresh token') ||
+                                   errorMessage.includes('No refresh token available') ||
+                                   errorMessage.includes('Invalid token received from refresh');
+
+          if (isSessionExpired) {
+            console.log('Session expired, logging out user');
+            authService.logout();
+
+            // Reject all queued requests with session expired message
+            const queue = [...this.requestQueue];
+            this.requestQueue = [];
+            queue.forEach(({ reject }) => {
+              reject(new Error('Session expired. Please log in again.'));
+            });
+
+            throw new Error('Session expired. Please log in again.');
+          } else {
+            // Other refresh errors - don't logout immediately
+            console.warn('Token refresh failed but not due to expiry:', refreshError);
+
+            // Reject all queued requests
+            const queue = [...this.requestQueue];
+            this.requestQueue = [];
+            queue.forEach(({ reject }) => {
+              reject(new Error('Authentication failed. Please try again.'));
+            });
+
+            throw new Error('Authentication failed. Please try again.');
+          }
         } finally {
           this.isRefreshing = false;
         }
@@ -334,6 +357,188 @@ class ApiService {
    */
   clearAuth(): void {
     authService.logout();
+  }
+
+  // ========================================
+  // AUTHENTICATION API METHODS
+  // ========================================
+
+  async register(userData: any): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.register, userData);
+  }
+
+  async login(credentials: any): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.login, credentials);
+  }
+
+  async refreshToken(refreshToken: string): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.refresh, { refresh_token: refreshToken });
+  }
+
+  async logout(): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.logout);
+  }
+
+  async getCurrentUser(): Promise<any> {
+    return this.get(API_ENDPOINTS.auth.me);
+  }
+
+  async verifyEmail(token: string): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.verifyEmail(token));
+  }
+
+  async requestPasswordReset(email: string): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.requestPasswordReset, { email });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.resetPassword(token), { new_password: newPassword });
+  }
+
+  // API Keys management
+  async getApiKeys(): Promise<any> {
+    return this.get(API_ENDPOINTS.auth.apiKeys.list);
+  }
+
+  async createApiKey(keyData: any): Promise<any> {
+    return this.post(API_ENDPOINTS.auth.apiKeys.create, keyData);
+  }
+
+  async revokeApiKey(keyId: string): Promise<any> {
+    return this.delete(API_ENDPOINTS.auth.apiKeys.revoke(keyId));
+  }
+
+  async toggleApiKey(keyId: string): Promise<any> {
+    return this.put(API_ENDPOINTS.auth.apiKeys.toggle(keyId));
+  }
+
+  // OAuth methods
+  async getOAuthLoginUrl(provider: string, redirectUri?: string): Promise<any> {
+    const params = redirectUri ? { redirect_uri: redirectUri } : undefined;
+    return this.get(API_ENDPOINTS.auth.oauth.login(provider), params);
+  }
+
+  // ========================================
+  // PIPELINE API METHODS
+  // ========================================
+
+  async getPipelines(): Promise<any> {
+    return this.get(API_ENDPOINTS.pipelines.list);
+  }
+
+  async createPipeline(pipelineData: any): Promise<any> {
+    return this.post(API_ENDPOINTS.pipelines.create, pipelineData);
+  }
+
+  async getPipeline(pipelineId: string): Promise<any> {
+    return this.get(API_ENDPOINTS.pipelines.get(pipelineId));
+  }
+
+  async updatePipeline(pipelineId: string, pipelineData: any): Promise<any> {
+    return this.put(API_ENDPOINTS.pipelines.update(pipelineId), pipelineData);
+  }
+
+  async deletePipeline(pipelineId: string): Promise<any> {
+    return this.delete(API_ENDPOINTS.pipelines.delete(pipelineId));
+  }
+
+  async executePipeline(pipelineId: string, executionParams?: any): Promise<any> {
+    return this.post(API_ENDPOINTS.pipelines.execute(pipelineId), executionParams);
+  }
+
+  async getPipelineExecutions(pipelineId: string): Promise<any> {
+    return this.get(API_ENDPOINTS.pipelines.executions(pipelineId));
+  }
+
+  async cancelExecution(pipelineId: string, executionId: string): Promise<any> {
+    return this.post(API_ENDPOINTS.pipelines.cancel(pipelineId, executionId));
+  }
+
+  // ========================================
+  // CONNECTOR API METHODS
+  // ========================================
+
+  async getConnectors(): Promise<any> {
+    return this.get(API_ENDPOINTS.connectors.list);
+  }
+
+  async createConnector(connectorData: any): Promise<any> {
+    return this.post(API_ENDPOINTS.connectors.create, connectorData);
+  }
+
+  async getConnector(connectorId: string): Promise<any> {
+    return this.get(API_ENDPOINTS.connectors.get(connectorId));
+  }
+
+  async updateConnector(connectorId: string, connectorData: any): Promise<any> {
+    return this.put(API_ENDPOINTS.connectors.update(connectorId), connectorData);
+  }
+
+  async deleteConnector(connectorId: string): Promise<any> {
+    return this.delete(API_ENDPOINTS.connectors.delete(connectorId));
+  }
+
+  async testConnector(connectorId: string): Promise<any> {
+    return this.post(API_ENDPOINTS.connectors.test(connectorId));
+  }
+
+  async previewConnectorData(connectorId: string, limit?: number): Promise<any> {
+    const params = limit ? { limit: limit.toString() } : undefined;
+    return this.get(API_ENDPOINTS.connectors.preview(connectorId), params);
+  }
+
+  // ========================================
+  // BACKGROUND TASKS API METHODS
+  // ========================================
+
+  async getTasksStatus(): Promise<any> {
+    return this.get(API_ENDPOINTS.tasks.status);
+  }
+
+  async getTaskQueue(): Promise<any> {
+    return this.get(API_ENDPOINTS.tasks.queue);
+  }
+
+  async getTaskHistory(params?: { limit?: number; offset?: number; status?: string }): Promise<any> {
+    const queryParams: Record<string, string> = {};
+    if (params?.limit) queryParams.limit = params.limit.toString();
+    if (params?.offset) queryParams.offset = params.offset.toString();
+    if (params?.status) queryParams.status_filter = params.status;
+    
+    return this.get(API_ENDPOINTS.tasks.history, queryParams);
+  }
+
+  async getTaskMetrics(): Promise<any> {
+    return this.get(API_ENDPOINTS.tasks.metrics);
+  }
+
+  async executeTask(taskType: 'pipeline' | 'dataProcessing' | 'reportGeneration' | 'maintenance' | 'notification', taskData: any): Promise<any> {
+    const endpoint = API_ENDPOINTS.tasks.execute[taskType];
+    return this.post(endpoint, taskData);
+  }
+
+  async cancelTask(taskId: string): Promise<any> {
+    return this.post(API_ENDPOINTS.tasks.cancel(taskId));
+  }
+
+  async retryTask(taskId: string): Promise<any> {
+    return this.post(API_ENDPOINTS.tasks.retry(taskId));
+  }
+
+  async getTask(taskId: string): Promise<any> {
+    return this.get(API_ENDPOINTS.tasks.get(taskId));
+  }
+
+  async getTaskLogs(taskId: string): Promise<any> {
+    return this.get(API_ENDPOINTS.tasks.logs(taskId));
+  }
+
+  // ========================================
+  // HEALTH CHECK METHOD
+  // ========================================
+
+  async getHealthStatus(): Promise<any> {
+    return this.get(API_ENDPOINTS.health);
   }
 }
 

@@ -64,6 +64,12 @@ class AuthService {
   constructor() {
     this.baseUrl = API_CONFIG.baseUrl;
     this.initializeFromStorage();
+    
+    // Re-initialize when client-side if server-side rendered
+    if (this.isBrowser() && !this.state.tokens) {
+      // Use a timeout to avoid blocking the constructor
+      setTimeout(() => this.initializeFromStorage(), 0);
+    }
   }
 
   public static getInstance(): AuthService {
@@ -102,33 +108,59 @@ class AuthService {
   }
 
   /**
+   * Check if we're in a browser environment
+   */
+  private isBrowser(): boolean {
+    return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+  }
+
+  /**
    * Initialize authentication state from localStorage
    */
   private initializeFromStorage(): void {
+    if (!this.isBrowser()) {
+      return;
+    }
+
     try {
       const accessToken = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
-      
+
       if (accessToken && refreshToken) {
         // Check if access token is valid
         if (!isTokenExpired(accessToken)) {
           const user = this.getUserFromToken(accessToken);
-          this.updateState({
-            isAuthenticated: true,
-            user,
-            tokens: { access_token: accessToken, refresh_token: refreshToken },
-          });
-          this.setupTokenRefreshTimer();
+          if (user) {
+            this.updateState({
+              isAuthenticated: true,
+              user,
+              tokens: { access_token: accessToken, refresh_token: refreshToken },
+            });
+            this.setupTokenRefreshTimer();
+          } else {
+            // Invalid token format
+            this.clearStoredTokens();
+          }
         } else if (!isTokenExpired(refreshToken)) {
           // Access token expired but refresh token is valid
+          console.log('Access token expired, attempting refresh during initialization');
           this.updateState({
             tokens: { access_token: accessToken, refresh_token: refreshToken },
           });
-          this.refreshAccessToken().catch(() => {
-            this.logout();
+          this.refreshAccessToken().catch((error) => {
+            console.error('Failed to refresh token during initialization:', error);
+            console.log('Clearing tokens due to refresh failure during initialization');
+            this.clearStoredTokens();
+            this.updateState({
+              isAuthenticated: false,
+              user: null,
+              tokens: null,
+              error: 'Session expired. Please log in again.'
+            });
           });
         } else {
           // Both tokens expired
+          console.log('Both tokens expired, clearing storage');
           this.clearStoredTokens();
         }
       }
@@ -157,6 +189,10 @@ class AuthService {
    * Store tokens securely in localStorage
    */
   private storeTokens(tokens: AuthTokens): void {
+    if (!this.isBrowser()) {
+      return;
+    }
+
     localStorage.setItem('access_token', tokens.access_token);
     localStorage.setItem('refresh_token', tokens.refresh_token);
     
@@ -171,6 +207,10 @@ class AuthService {
    * Clear stored tokens
    */
   private clearStoredTokens(): void {
+    if (!this.isBrowser()) {
+      return;
+    }
+
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expires_at');
@@ -208,10 +248,10 @@ class AuthService {
       const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          username: credentials.email,
+        body: JSON.stringify({
+          email: credentials.email,
           password: credentials.password,
         }),
       });
@@ -338,7 +378,25 @@ class AuthService {
         });
 
         if (!response.ok) {
-          throw new Error('Token refresh failed');
+          let errorMessage = 'Token refresh failed';
+          let errorData: { detail?: string; [key: string]: unknown } = {};
+
+          try {
+            errorData = await response.json();
+            errorMessage = errorData.detail || `Token refresh failed (${response.status})`;
+          } catch {
+            errorMessage = `Token refresh failed (${response.status})`;
+          }
+
+          console.error('Token refresh error:', {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            errorMessage,
+            errorData
+          });
+
+          throw new Error(errorMessage);
         }
 
         const newTokens: AuthTokens = await response.json();
@@ -376,7 +434,17 @@ class AuthService {
    */
   async getValidAccessToken(): Promise<string | null> {
     const { tokens } = this.state;
-    if (!tokens) return null;
+    if (!tokens) {
+      console.warn('No tokens available for getValidAccessToken');
+      return null;
+    }
+
+    // Validate token format first
+    if (!tokens.access_token || !tokens.refresh_token) {
+      console.warn('Invalid token format in getValidAccessToken');
+      this.logout();
+      return null;
+    }
 
     // If token is not expiring soon, return it
     if (!isTokenExpiringWithin(tokens.access_token, 5)) {
@@ -385,10 +453,11 @@ class AuthService {
 
     // If token is expiring soon, refresh it
     try {
+      console.log('Access token expiring soon, refreshing...');
       const newTokens = await this.refreshAccessToken();
       return newTokens.access_token;
     } catch (error) {
-      console.error('Failed to refresh token:', error);
+      console.error('Failed to refresh token in getValidAccessToken:', error);
       this.logout();
       return null;
     }
@@ -459,6 +528,107 @@ class AuthService {
    */
   getTokens(): AuthTokens | null {
     return this.state.tokens;
+  }
+
+  /**
+   * Check if user has valid authentication (including refresh capability)
+   */
+  hasValidAuthentication(): boolean {
+    const { tokens } = this.state;
+    if (!tokens) {
+      console.debug('No tokens available for authentication check');
+      return false;
+    }
+
+    // Validate token format
+    if (!tokens.access_token || !tokens.refresh_token) {
+      console.warn('Invalid token format in authentication check');
+      return false;
+    }
+
+    // If access token is valid, we're good
+    if (!isTokenExpired(tokens.access_token)) {
+      return true;
+    }
+
+    // If access token is expired but refresh token is valid, we can refresh
+    if (!isTokenExpired(tokens.refresh_token)) {
+      return true;
+    }
+
+    // Both tokens are expired
+    console.debug('Both access and refresh tokens are expired');
+    return false;
+  }
+
+  /**
+   * Validate current authentication state and provide detailed status
+   */
+  validateAuthenticationState(): { isValid: boolean; reason?: string; canRefresh?: boolean } {
+    const { tokens, isAuthenticated } = this.state;
+
+    if (!tokens) {
+      return { isValid: false, reason: 'No tokens available' };
+    }
+
+    if (!tokens.access_token || !tokens.refresh_token) {
+      return { isValid: false, reason: 'Invalid token format' };
+    }
+
+    const accessTokenExpired = isTokenExpired(tokens.access_token);
+    const refreshTokenExpired = isTokenExpired(tokens.refresh_token);
+
+    if (!accessTokenExpired) {
+      return { isValid: true };
+    }
+
+    if (accessTokenExpired && !refreshTokenExpired) {
+      return { isValid: false, reason: 'Access token expired', canRefresh: true };
+    }
+
+    if (accessTokenExpired && refreshTokenExpired) {
+      return { isValid: false, reason: 'Both tokens expired', canRefresh: false };
+    }
+
+    return { isValid: isAuthenticated };
+  }
+
+  /**
+   * Get authentication debug info (for troubleshooting)
+   */
+  getDebugInfo(): Record<string, unknown> {
+    const { tokens } = this.state;
+    if (!tokens) {
+      return { hasTokens: false };
+    }
+
+    try {
+      const accessTokenPayload = decodeJWT(tokens.access_token);
+      const refreshTokenPayload = decodeJWT(tokens.refresh_token);
+
+      return {
+        hasTokens: true,
+        accessToken: {
+          expired: isTokenExpired(tokens.access_token),
+          expiringWithin5Min: isTokenExpiringWithin(tokens.access_token, 5),
+          timeRemaining: getTokenTimeRemaining(tokens.access_token),
+          payload: accessTokenPayload
+        },
+        refreshToken: {
+          expired: isTokenExpired(tokens.refresh_token),
+          timeRemaining: getTokenTimeRemaining(tokens.refresh_token),
+          payload: refreshTokenPayload
+        },
+        isAuthenticated: this.state.isAuthenticated,
+        hasValidAuth: this.hasValidAuthentication()
+      };
+    } catch (error) {
+      return {
+        hasTokens: true,
+        error: 'Failed to decode tokens',
+        details: error instanceof Error ? error.message : String(error)
+      };
+    }
   }
 
   /**
