@@ -186,7 +186,7 @@ class MockApiService {
           id: 'step1',
           type: 'source',
           name: 'Sales API',
-          config: { endpoint: '/api/sales', auth_type: 'bearer' },
+          config: { endpoint: '/api/sales', auth_type: 'mock_bearer' },
           order: 1
         },
         {
@@ -246,8 +246,8 @@ class MockApiService {
       type: 'api',
       status: 'connected',
       config: {
-        base_url: 'https://api.salesforce.com',
-        auth_type: 'oauth2',
+        base_url: 'https://mock-api.example.com',
+        auth_type: 'mock_oauth2',
         rate_limit: 1000
       },
       created_at: '2024-01-12T14:45:00Z',

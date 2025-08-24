@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiService } from '../services/api';
 import { User, UserSession } from '../types/user';
 import { toast } from 'sonner';
+import Logger from '../utils/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -49,7 +50,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [session]);
 
   const initializeAuth = () => {
-    console.log('🔐 Initializing authentication with direct mock data...');
+    Logger.log('🔐 Initializing authentication with direct mock data...');
 
     // Use direct mock data to avoid any async delays
     const mockUser = {
@@ -103,18 +104,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       isActive: true
     };
 
-    console.log('🔐 Setting mock user data directly');
+    Logger.log('🔐 Setting mock user data directly');
     setUser(mockUser);
     setSession({
       user: mockUser,
-      token: 'mock_token',
-      refreshToken: 'mock_refresh_token',
+      token: 'dev_mock_token_' + Date.now(),
+      refreshToken: 'dev_mock_refresh_token_' + Date.now(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       permissions: mockUser.role?.permissions || []
     });
     setError(null);
     setLoading(false);
-    console.log('🔐 Mock user loaded instantly');
+    Logger.log('🔐 Mock user loaded instantly');
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -146,7 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error: any) {
-      console.error('Login failed:', error);
+      Logger.error('Login failed:', error);
       setError(error.message || 'Login failed');
       toast.error('Login failed. Please check your credentials.');
       return false;
@@ -162,7 +163,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Ignore logout API errors - still clear local state
       });
     } catch (error) {
-      console.error('Logout API error:', error);
+      Logger.error('Logout API error:', error);
     } finally {
       // Always clear local state
       localStorage.removeItem('access_token');
@@ -188,14 +189,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       }
     } catch (error) {
-      console.error('Failed to refresh user data:', error);
+      Logger.error('Failed to refresh user data:', error);
       setError('Failed to refresh user data');
     }
   };
 
   const updateUser = async (userData: Partial<User>): Promise<void> => {
     try {
-      console.log('🔐 Updating user profile with:', userData);
+      Logger.log('🔐 Updating user profile with:', userData);
       const updatedUser = await apiService.updateUserProfile(userData);
 
       // Update user state
@@ -209,10 +210,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       }
 
-      console.log('🔐 User profile updated successfully:', updatedUser);
+      Logger.log('🔐 User profile updated successfully:', updatedUser);
       toast.success('Profile updated successfully');
     } catch (error: any) {
-      console.error('Failed to update user:', error);
+      Logger.error('Failed to update user:', error);
       setError(error.message || 'Failed to update profile');
       toast.error('Failed to update profile');
       throw error;
@@ -242,7 +243,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      Logger.error('Token refresh failed:', error);
       // Force logout on refresh failure
       await logout();
     }
