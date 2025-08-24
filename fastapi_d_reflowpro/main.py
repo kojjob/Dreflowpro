@@ -9,12 +9,16 @@ import os
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.redis import init_redis, close_redis
+from app.core.openapi_config import setup_openapi_docs
 
 # Import all models to register them with SQLAlchemy
 import app.models.all  # noqa
 
 # Import API routers
 from app.api.v1.router import router as v1_router
+
+# Import middleware
+from app.middleware.rate_limiting import GlobalRateLimitMiddleware, APIRateLimitMiddleware
 
 
 @asynccontextmanager
@@ -47,10 +51,26 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.VERSION,
-    description="ETL SaaS Platform for Non-Technical Users",
+    title="DReflowPro ETL Platform API",
+    version="1.0.0",
+    description="Production-ready ETL platform with comprehensive data connectors and pipeline management",
     lifespan=lifespan,
+    openapi_url="/api/v1/openapi.json",
+    docs_url=None,  # Will be configured in setup_openapi_docs
+    redoc_url=None,  # Will be configured in setup_openapi_docs
+)
+
+# Rate limiting middleware (added first for early protection)
+app.add_middleware(
+    GlobalRateLimitMiddleware,
+    max_requests=200,  # 200 requests per minute per IP
+    window_seconds=60
+)
+
+app.add_middleware(
+    APIRateLimitMiddleware,
+    max_requests=1000,  # 1000 API requests per hour
+    window_seconds=3600
 )
 
 # CORS middleware
@@ -61,6 +81,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Setup comprehensive OpenAPI documentation
+setup_openapi_docs(app)
 
 # Include API routers
 app.include_router(v1_router)

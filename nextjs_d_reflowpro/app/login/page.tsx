@@ -15,7 +15,7 @@ import { SocialButtons } from "@/app/components/auth/SocialButtons"
 import { Button } from "@/app/components/ui/Button"
 import { Input } from "@/app/components/ui/Input"
 import { Alert, AlertDescription } from "@/app/components/ui/Alert"
-import { authService } from "@/app/services/auth"
+import { useAuth } from "@/app/contexts/AuthContext"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -26,10 +26,9 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { login, loading, error: authError } = useAuth()
 
   const {
     register,
@@ -40,23 +39,16 @@ export default function LoginPage() {
   })
 
   const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true)
-    setError(null)
-
     try {
-      await authService.login({
-        email: data.email,
-        password: data.password,
-        rememberMe: data.rememberMe,
-      })
-
-      toast.success('Welcome back!')
-      router.push('/dashboard')
+      const success = await login(data.email, data.password)
+      
+      if (success) {
+        toast.success('Welcome back!')
+        router.push('/dashboard')
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.'
-      setError(errorMessage)
-    } finally {
-      setIsLoading(false)
+      console.error('Login error:', error)
+      toast.error('Login failed. Please try again.')
     }
   }
 
@@ -77,7 +69,7 @@ export default function LoginPage() {
         {/* Social Login Buttons */}
         <SocialButtons 
           onSocialLogin={handleSocialLogin}
-          isLoading={isLoading}
+          isLoading={loading}
         />
 
         {/* Divider */}
@@ -91,14 +83,14 @@ export default function LoginPage() {
         </div>
 
         {/* Error Alert */}
-        {error && (
+        {authError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{authError}</AlertDescription>
             </Alert>
           </motion.div>
         )}
@@ -118,7 +110,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="Enter your email"
                 className={`pl-10 ${errors.email ? 'border-red-300 focus-visible:ring-red-500' : ''}`}
-                disabled={isLoading}
+                disabled={loading}
               />
             </div>
             {errors.email && (
@@ -139,13 +131,13 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 className={`pl-10 pr-10 ${errors.password ? 'border-red-300 focus-visible:ring-red-500' : ''}`}
-                disabled={isLoading}
+                disabled={loading}
               />
               <button
                 type="button"
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading}
+                disabled={loading}
               >
                 {showPassword ? (
                   <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -185,10 +177,10 @@ export default function LoginPage() {
           <Button
             type="submit"
             size="lg"
-            disabled={isLoading}
+            disabled={loading}
             className="w-full"
           >
-            {isLoading ? (
+            {loading ? (
               <motion.div
                 className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                 animate={{ rotate: 360 }}

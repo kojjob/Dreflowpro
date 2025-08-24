@@ -60,8 +60,9 @@ export default function ConnectorsPage() {
       router.push('/login')
       return
     }
-    
-    loadConnectors()
+
+    // Redirect to dashboard with connectors tab active
+    router.push('/dashboard?tab=connectors')
   }, [router])
 
   const loadConnectors = async () => {
@@ -170,29 +171,45 @@ export default function ConnectorsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-white via-indigo-50 to-blue-50 shadow-lg border-b border-gray-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center space-x-4">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="text-gray-400 hover:text-gray-600"
+                className="flex items-center space-x-2 text-gray-500 hover:text-indigo-600 transition-colors duration-200 bg-white/50 px-3 py-2 rounded-lg hover:bg-white/80"
               >
-                ← Back
+                <span>←</span>
+                <span className="font-medium">Back to Dashboard</span>
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">Data Connectors</h1>
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
-                {connectors.length} Connectors
-              </span>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-2xl">🔌</span>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
+                    Data Connectors
+                  </h1>
+                  <p className="text-sm text-gray-600">Seamless data source integration</p>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              + New Connector
-            </button>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-lg">
+                <span className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-lg border border-blue-200">
+                  📊 {connectors.length} Active Connectors
+                </span>
+              </div>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center space-x-2"
+              >
+                <span className="text-lg">+</span>
+                <span>New Connector</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -399,16 +416,42 @@ export default function ConnectorsPage() {
               />
             </div>
           ) : connectors.length === 0 ? (
-            <div className="text-center py-12">
-              <span className="text-6xl mb-4 block">🔌</span>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No connectors yet</h3>
-              <p className="text-gray-600 mb-6">Create your first data connector to get started with ETL operations.</p>
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Create Your First Connector
-              </button>
+            <div className="text-center py-20">
+              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-3xl p-12 max-w-2xl mx-auto border border-indigo-100">
+                <div className="w-24 h-24 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <span className="text-5xl">🔌</span>
+                </div>
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent mb-4">
+                  No connectors yet
+                </h3>
+                <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+                  Create your first data connector to get started with ETL operations.
+                  Connect to databases, APIs, and file systems with just a few clicks.
+                </p>
+
+                {/* Feature highlights */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  <div className="bg-white/70 rounded-xl p-4 border border-white/50">
+                    <div className="text-2xl mb-2">🚀</div>
+                    <div className="text-sm font-medium text-gray-700">Quick Setup</div>
+                  </div>
+                  <div className="bg-white/70 rounded-xl p-4 border border-white/50">
+                    <div className="text-2xl mb-2">🔒</div>
+                    <div className="text-sm font-medium text-gray-700">Secure</div>
+                  </div>
+                  <div className="bg-white/70 rounded-xl p-4 border border-white/50">
+                    <div className="text-2xl mb-2">⚡</div>
+                    <div className="text-sm font-medium text-gray-700">High Performance</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  🚀 Create Your First Connector
+                </button>
+              </div>
             </div>
           ) : (
             <div className="overflow-hidden">

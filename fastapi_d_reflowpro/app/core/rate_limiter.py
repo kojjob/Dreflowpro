@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, status
 from functools import wraps
 import asyncio
 
-from .redis import RedisManager, redis_client
+from .redis import RedisManager, redis_manager
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class RateLimiter:
     """Sliding window rate limiter using Redis for persistence and performance."""
     
     def __init__(self):
-        self.redis = redis_client
+        self.redis = redis_manager
     
     async def check_rate_limit(
         self, 

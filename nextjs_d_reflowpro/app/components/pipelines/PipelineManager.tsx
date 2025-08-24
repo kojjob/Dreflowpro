@@ -212,7 +212,8 @@ const PipelineManager: React.FC = () => {
       }
 
       const response = await apiService.getPipelines();
-      const pipelineData = response.pipelines || [];
+      // Handle both API response format and mock data format
+      const pipelineData = Array.isArray(response) ? response : (response.pipelines || []);
       setPipelines(pipelineData);
       
       // Fetch executions for each pipeline
@@ -1069,7 +1070,7 @@ const PipelineManager: React.FC = () => {
               <div className="flex items-center space-x-2">
                 {getStatusIcon(pipeline.status)}
                 <span className={`text-sm font-medium ${getStatusColor(pipeline.status)}`}>
-                  {pipeline.status.toUpperCase()}
+                  {pipeline.status ? pipeline.status.toUpperCase() : 'UNKNOWN'}
                 </span>
               </div>
             </div>
@@ -1120,18 +1121,25 @@ const PipelineManager: React.FC = () => {
             </div>
 
             {/* Recent Executions */}
-            {executions[pipeline.id] && executions[pipeline.id].length > 0 && (
+            {executions[pipeline.id] && Array.isArray(executions[pipeline.id]) && executions[pipeline.id].length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Executions</h4>
                 <div className="space-y-2">
-                  {executions[pipeline.id].map((execution) => (
+                  {executions[pipeline.id].filter(execution => execution && execution.id).map((execution) => (
                     <div key={execution.id} className="flex justify-between items-center text-xs">
                       <div className="flex items-center space-x-2">
                         {getStatusIcon(execution.status)}
-                        <span>{new Date(execution.started_at).toLocaleString()}</span>
+                        <span>
+                          {execution.started_at
+                            ? new Date(execution.started_at).toLocaleString()
+                            : 'No start time'
+                          }
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-gray-600">{execution.rows_processed.toLocaleString()} rows</span>
+                        <span className="text-gray-600">
+                          {execution.rows_processed ? execution.rows_processed.toLocaleString() : '0'} rows
+                        </span>
                         {execution.status === 'running' && (
                           <button
                             onClick={() => cancelExecution(pipeline.id, execution.id)}
@@ -1599,7 +1607,7 @@ const PipelineManager: React.FC = () => {
                                     step.step_type === 'transform' ? 'bg-purple-100 text-purple-800' :
                                     'bg-orange-100 text-orange-800'
                                   }`}>
-                                    {step.step_type.toUpperCase()}
+                                    {step.step_type?.toUpperCase() || 'UNKNOWN'}
                                   </span>
                                   <span className="text-sm text-gray-500">Step {step.step_order}</span>
                                 </div>

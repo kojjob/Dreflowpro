@@ -1,6 +1,7 @@
 # Import all models here to ensure they are registered with SQLAlchemy
 
 from .user import Organization, User, APIKey
+from .token_family import TokenFamily, RefreshToken, TokenAuditLog, TokenStatus
 from .connector import DataConnector, DataPreview, ConnectorType, ConnectorStatus
 from .pipeline import (
     ETLPipeline, 
@@ -17,6 +18,12 @@ __all__ = [
     "Organization",
     "User", 
     "APIKey",
+    
+    # Token models
+    "TokenFamily",
+    "RefreshToken",
+    "TokenAuditLog",
+    "TokenStatus",
     
     # Connector models
     "DataConnector",
