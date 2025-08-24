@@ -15,7 +15,6 @@ import {
   Brain,
   Clock,
   Sparkles,
-  FileText,
   CheckSquare,
   ArrowRight,
   Target,
@@ -25,40 +24,17 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-// Import working components directly
+// Import all working components directly
 import ProfileSettings from '../profile/ProfileSettings';
 import Preferences from '../profile/Preferences';
 import BillingSubscription from '../profile/BillingSubscription';
 import HelpSupport from '../profile/HelpSupport';
-
-// Simple fallback components to avoid errors
-const PipelineManager = () => (
-  <div className="p-8 text-center">
-    <h2 className="text-2xl font-bold text-gray-900 mb-4">Pipeline Manager</h2>
-    <p className="text-gray-600">Pipeline management features coming soon...</p>
-  </div>
-);
-
-const TaskMonitor = () => (
-  <div className="p-8 text-center">
-    <h2 className="text-2xl font-bold text-gray-900 mb-4">Task Monitor</h2>
-    <p className="text-gray-600">Task monitoring features coming soon...</p>
-  </div>
-);
-
-const ConnectorManager = () => (
-  <div className="p-8 text-center">
-    <h2 className="text-2xl font-bold text-gray-900 mb-4">Connector Manager</h2>
-    <p className="text-gray-600">Connector management features coming soon...</p>
-  </div>
-);
-
-const DataAnalysisWorkflow = () => (
-  <div className="p-8 text-center">
-    <h2 className="text-2xl font-bold text-gray-900 mb-4">Data Analysis</h2>
-    <p className="text-gray-600">Data analysis features coming soon...</p>
-  </div>
-);
+import DataAnalysisWorkflow from '../data-analysis/DataAnalysisWorkflow';
+import PipelineManager from '../pipelines/PipelineManager';
+import TaskMonitor from '../tasks/TaskMonitor';
+import ConnectorManager from '../connectors/ConnectorManager';
+import ReportsManager from '../reports/ReportsManager';
+import AIInsightsManager from '../ai/AIInsightsManager';
 
 interface NavigationItem {
   id: string;
@@ -129,21 +105,20 @@ const MainDashboard: React.FC = () => {
       component: TaskMonitor,
       description: 'Background task monitoring and management'
     },
-    // Temporarily disable these components to avoid loading issues
-    // {
-    //   id: 'reports',
-    //   name: 'Reports',
-    //   icon: FileText,
-    //   component: () => <div>Reports coming soon...</div>,
-    //   description: 'Generate and view analytical reports'
-    // },
-    // {
-    //   id: 'ai-insights',
-    //   name: 'AI Insights',
-    //   icon: Sparkles,
-    //   component: () => <div>AI Insights coming soon...</div>,
-    //   description: 'AI-powered data insights and recommendations'
-    // },
+    {
+      id: 'reports',
+      name: 'Reports',
+      icon: Sparkles,
+      component: ReportsManager,
+      description: 'Generate and view analytical reports'
+    },
+    {
+      id: 'ai-insights',
+      name: 'AI Insights',
+      icon: Brain,
+      component: AIInsightsManager,
+      description: 'AI-powered data insights and recommendations'
+    },
     {
       id: 'profile',
       name: 'Profile Settings',

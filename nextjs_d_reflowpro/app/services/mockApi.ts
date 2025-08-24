@@ -367,7 +367,9 @@ class MockApiService {
 
   getCurrentUser() {
     console.log('📝 MockAPI: getCurrentUser called');
-    return {
+
+    // Default user data
+    const defaultUser = {
       id: '1',
       email: 'admin@dreflowpro.com',
       firstName: 'John',
@@ -418,6 +420,21 @@ class MockApiService {
       isEmailVerified: true,
       isActive: true
     };
+
+    // Try to load saved profile data from localStorage
+    try {
+      const savedProfile = localStorage.getItem('dreflowpro_user_profile');
+      if (savedProfile) {
+        const parsedProfile = JSON.parse(savedProfile);
+        console.log('💾 Loaded saved user profile from localStorage:', parsedProfile);
+        return parsedProfile;
+      }
+    } catch (error) {
+      console.warn('Failed to load user profile from localStorage:', error);
+    }
+
+    // Return default user if no saved profile
+    return defaultUser;
   }
 
   getNotifications(params?: { limit?: number; offset?: number; unreadOnly?: boolean }) {
@@ -549,7 +566,23 @@ class MockApiService {
   }
 
   updateUserProfile(profileData: any) {
-    return { ...this.getCurrentUser(), ...profileData };
+    console.log('📝 MockAPI: updateUserProfile called with:', profileData);
+
+    // Get current user data
+    const currentUser = this.getCurrentUser();
+
+    // Merge with new profile data
+    const updatedUser = { ...currentUser, ...profileData };
+
+    // Persist to localStorage for development
+    try {
+      localStorage.setItem('dreflowpro_user_profile', JSON.stringify(updatedUser));
+      console.log('💾 User profile saved to localStorage:', updatedUser);
+    } catch (error) {
+      console.warn('Failed to save user profile to localStorage:', error);
+    }
+
+    return updatedUser;
   }
 
   changePassword(passwordData: any) {

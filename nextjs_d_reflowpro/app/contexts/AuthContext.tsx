@@ -195,16 +195,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateUser = async (userData: Partial<User>): Promise<void> => {
     try {
+      console.log('🔐 Updating user profile with:', userData);
       const updatedUser = await apiService.updateUserProfile(userData);
+
+      // Update user state
       setUser(updatedUser);
-      
+
+      // Update session with new user data
       if (session) {
         setSession({
           ...session,
           user: updatedUser
         });
       }
-      
+
+      console.log('🔐 User profile updated successfully:', updatedUser);
       toast.success('Profile updated successfully');
     } catch (error: any) {
       console.error('Failed to update user:', error);
