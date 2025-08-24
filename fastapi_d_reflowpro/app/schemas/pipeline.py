@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -51,7 +51,8 @@ class PipelineStepBase(BaseModel, ValidatorMixin):
     is_enabled: Optional[bool] = Field(True, description="Whether step is enabled")
     retry_config: Optional[Dict[str, Any]] = Field(None, description="Retry configuration")
 
-    @validator('step_type')
+    @field_validator('step_type')
+    @classmethod
     def validate_step_type(cls, v):
         allowed_types = ['source', 'transform', 'destination']
         if v not in allowed_types:
@@ -62,7 +63,8 @@ class PipelineStepBase(BaseModel, ValidatorMixin):
             )
         return v
     
-    @validator('step_name')
+    @field_validator('step_name')
+    @classmethod
     def validate_step_name(cls, v):
         v = cls.sanitize_string_input(v.strip(), max_length=100)
         
@@ -75,17 +77,20 @@ class PipelineStepBase(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('step_config')
+    @field_validator('step_config')
+    @classmethod
     def validate_step_config(cls, v):
         return cls.validate_json_data(v)
     
-    @validator('transformation_config')
+    @field_validator('transformation_config')
+    @classmethod
     def validate_transformation_config(cls, v):
         if v is None:
             return v
         return cls.validate_json_data(v)
     
-    @validator('retry_config')
+    @field_validator('retry_config')
+    @classmethod
     def validate_retry_config(cls, v):
         if v is None:
             return v
@@ -113,14 +118,10 @@ class PipelineStepBase(BaseModel, ValidatorMixin):
         
         return v
     
-    @root_validator
-    def validate_step_consistency(cls, values):
-        step_type = values.get('step_type')
-        transformation_type = values.get('transformation_type')
-        source_connector_id = values.get('source_connector_id')
-        
+    @model_validator(mode='after')
+    def validate_step_consistency(self):
         # Transform steps should have transformation_type
-        if step_type == 'transform' and not transformation_type:
+        if self.step_type == 'transform' and not self.transformation_type:
             raise ValidationError(
                 "Transform steps must specify transformation_type",
                 field="transformation_type",
@@ -128,14 +129,14 @@ class PipelineStepBase(BaseModel, ValidatorMixin):
             )
         
         # Source steps should have source_connector_id
-        if step_type == 'source' and not source_connector_id:
+        if self.step_type == 'source' and not self.source_connector_id:
             raise ValidationError(
                 "Source steps must specify source_connector_id",
                 field="source_connector_id",
                 code="SOURCE_CONNECTOR_REQUIRED"
             )
         
-        return values
+        return self
 
 
 class PipelineStepCreate(PipelineStepBase):

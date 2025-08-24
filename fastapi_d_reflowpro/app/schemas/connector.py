@@ -111,7 +111,8 @@ class FileConnectionConfig(BaseModel, ValidatorMixin):
     skip_rows: Optional[int] = Field(0, ge=0, le=1000, description="Number of rows to skip at start")
     max_rows: Optional[int] = Field(None, ge=1, description="Maximum number of rows to process")
     
-    @validator('file_path')
+    @field_validator('file_path')
+    @classmethod
     def validate_file_path(cls, v):
         if v is None:
             return v
@@ -141,7 +142,8 @@ class FileConnectionConfig(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('encoding')
+    @field_validator('encoding')
+    @classmethod
     def validate_encoding(cls, v):
         if v is None:
             return "utf-8"
@@ -156,7 +158,8 @@ class FileConnectionConfig(BaseModel, ValidatorMixin):
         
         return v.lower()
     
-    @validator('delimiter')
+    @field_validator('delimiter')
+    @classmethod
     def validate_delimiter(cls, v):
         if v is None:
             return ","
@@ -169,7 +172,8 @@ class FileConnectionConfig(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('sheet_name')
+    @field_validator('sheet_name')
+    @classmethod
     def validate_sheet_name(cls, v):
         if v is None:
             return v
@@ -201,11 +205,13 @@ class APIConnectionConfig(BaseModel, ValidatorMixin):
     retry_attempts: Optional[int] = Field(3, ge=0, le=10, description="Number of retry attempts")
     rate_limit_per_second: Optional[int] = Field(10, ge=1, le=1000, description="Rate limit requests per second")
     
-    @validator('base_url')
+    @field_validator('base_url')
+    @classmethod
     def validate_base_url(cls, v):
         return cls.validate_url_format(v, allowed_schemes=['http', 'https'])
     
-    @validator('api_key')
+    @field_validator('api_key')
+    @classmethod
     def validate_api_key(cls, v):
         if v is None:
             return v
@@ -220,7 +226,8 @@ class APIConnectionConfig(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('auth_type')
+    @field_validator('auth_type')
+    @classmethod
     def validate_auth_type(cls, v):
         if v is None:
             return "none"
@@ -235,7 +242,8 @@ class APIConnectionConfig(BaseModel, ValidatorMixin):
         
         return v.lower()
     
-    @validator('headers')
+    @field_validator('headers')
+    @classmethod
     def validate_headers(cls, v):
         if v is None:
             return {}
@@ -276,7 +284,8 @@ class ConnectorCreate(BaseModel, ValidatorMixin):
     
     model_config = ConfigDict(use_enum_values=True)
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         v = cls.sanitize_string_input(v.strip(), max_length=255)
         
@@ -289,29 +298,31 @@ class ConnectorCreate(BaseModel, ValidatorMixin):
         
         return v
     
-    @validator('description')
+    @field_validator('description')
+    @classmethod
     def validate_description(cls, v):
         if v is None:
             return v
         return cls.sanitize_string_input(v.strip(), max_length=1000)
     
-    @validator('connection_config')
-    def validate_connection_config(cls, v, values):
-        if v is None:
-            return {}
+    @model_validator(mode='after')
+    def validate_connection_config(self):
+        if self.connection_config is None:
+            self.connection_config = {}
+            return self
         
-        v = cls.validate_json_data(v)
+        self.connection_config = self.validate_json_data(self.connection_config)
         
         # Type-specific validation
-        connector_type = values.get('type')
-        if connector_type == ConnectorType.DATABASE:
-            return cls.validate_database_connection(v)
-        elif connector_type in [ConnectorType.FILE_UPLOAD, ConnectorType.CSV, ConnectorType.EXCEL, ConnectorType.JSON]:
-            return cls.validate_file_upload(v)
+        if self.type == ConnectorType.DATABASE:
+            self.connection_config = self.validate_database_connection(self.connection_config)
+        elif self.type in [ConnectorType.FILE_UPLOAD, ConnectorType.CSV, ConnectorType.EXCEL, ConnectorType.JSON]:
+            self.connection_config = self.validate_file_upload(self.connection_config)
         
-        return v
+        return self
     
-    @validator('tags')
+    @field_validator('tags')
+    @classmethod
     def validate_tags(cls, v):
         if v is None:
             return v
@@ -389,11 +400,13 @@ class ConnectorTestRequest(BaseModel, ValidatorMixin):
     test_type: Optional[str] = Field("connection", description="Type of test to perform")
     timeout_seconds: Optional[int] = Field(30, ge=5, le=120, description="Test timeout in seconds")
     
-    @validator('connection_config')
+    @field_validator('connection_config')
+    @classmethod
     def validate_connection_config(cls, v):
         return cls.validate_json_data(v)
     
-    @validator('test_type')
+    @field_validator('test_type')
+    @classmethod
     def validate_test_type(cls, v):
         valid_types = ['connection', 'schema', 'data_preview', 'performance']
         if v not in valid_types:
