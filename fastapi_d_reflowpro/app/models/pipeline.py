@@ -1,235 +1,153 @@
-# Pipeline Models for DReflowPro ETL Platform
-
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Dict, Any, Optional, List
-from uuid import uuid4
-
-from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey, Boolean, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, DateTime, Boolean, Enum, ForeignKey, Text, Integer
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
-
+from sqlalchemy.sql import func
+from enum import Enum as PyEnum
+import uuid
 from ..core.database import Base
 
 
-class PipelineStatus(str, Enum):
-    """Pipeline execution status"""
+class PipelineStatus(str, PyEnum):
+    """Status of ETL pipelines."""
     DRAFT = "draft"
-    ACTIVE = "active"  
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    RUNNING = "running"
+    ERROR = "error"
+
+
+class ExecutionStatus(str, PyEnum):
+    """Status of pipeline executions."""
+    PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
-    PAUSED = "paused"
     CANCELLED = "cancelled"
 
 
-class StepType(str, Enum):
-    """Pipeline step types"""
-    SOURCE = "source"
-    TRANSFORM = "transform" 
-    DESTINATION = "destination"
-
-
-class TransformationType(str, Enum):
-    """Available transformation types"""
+class TransformationType(str, PyEnum):
+    """Types of transformations available."""
     FILTER = "filter"
     MAP = "map"
     AGGREGATE = "aggregate"
     JOIN = "join"
     SORT = "sort"
-    PIVOT = "pivot"
-    UNPIVOT = "unpivot"
     DEDUPLICATE = "deduplicate"
     VALIDATE = "validate"
+    CALCULATE = "calculate"
+    SPLIT = "split"
+    MERGE = "merge"
 
 
-class Pipeline(Base):
-    """ETL Pipeline definition"""
-    __tablename__ = "pipelines"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+class ETLPipeline(Base):
+    """ETL Pipeline model."""
+    __tablename__ = "etl_pipelines"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    description = Column(Text)
+    description = Column(Text, nullable=True)
+    status = Column(Enum(PipelineStatus), default=PipelineStatus.DRAFT)
     
-    # Ownership
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    # Pipeline configuration (visual flow)
+    pipeline_config = Column(JSON, nullable=True)  # Nodes, connections, etc.
     
-    # Pipeline configuration
-    config = Column(JSON, default=dict)
-    schedule = Column(JSON)  # Cron-like scheduling config
+    # Scheduling
+    schedule_cron = Column(String(100), nullable=True)  # Cron expression
+    is_scheduled = Column(Boolean, default=False, index=True)
+    next_run = Column(DateTime(timezone=True), nullable=True, index=True)
     
-    # Status and metadata
-    status = Column(String(20), default=PipelineStatus.DRAFT.value)
-    is_active = Column(Boolean, default=True)
+    # Metadata
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
+    tags = Column(JSON, nullable=True)  # Array of tags
     version = Column(Integer, default=1)
     
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    last_run_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    organization = relationship("Organization", back_populates="pipelines")
-    creator = relationship("User", back_populates="created_pipelines")
-    steps = relationship("PipelineStep", back_populates="pipeline", cascade="all, delete-orphan", order_by="PipelineStep.step_order")
-    executions = relationship("PipelineExecution", back_populates="pipeline", cascade="all, delete-orphan")
-    
-    __table_args__ = (
-        UniqueConstraint('organization_id', 'name', name='unique_pipeline_name_per_org'),
-    )
+    # Relationships - Phase 1: Comment out relationships to non-existent Phase 2 models
+    # organization = relationship("Organization", back_populates="pipelines")  # Phase 2
+    # created_by = relationship("User", back_populates="created_pipelines")  # Phase 2 
+    steps = relationship("PipelineStep", back_populates="pipeline", cascade="all, delete-orphan")
+    executions = relationship("PipelineExecution", back_populates="pipeline")
 
 
 class PipelineStep(Base):
-    """Individual step in a pipeline"""
+    """Individual steps in a pipeline."""
     __tablename__ = "pipeline_steps"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("pipelines.id"), nullable=False)
     
-    # Step definition
-    step_order = Column(Integer, nullable=False)
-    step_type = Column(String(20), nullable=False)  # source, transform, destination
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("etl_pipelines.id"), index=True)
+    step_order = Column(Integer, nullable=False, index=True)
+    step_type = Column(String(50), nullable=False, index=True)  # source, transform, destination
     step_name = Column(String(255), nullable=False)
-    step_config = Column(JSON, default=dict)
     
-    # For source steps - connector reference
-    source_connector_id = Column(UUID(as_uuid=True), ForeignKey("connectors.id"))
+    # Configuration for this step
+    step_config = Column(JSON, nullable=False)
     
-    # For transform steps
-    transformation_type = Column(String(50))  # filter, map, aggregate, etc.
-    transformation_config = Column(JSON, default=dict)
+    # For source steps
+    source_connector_id = Column(UUID(as_uuid=True), ForeignKey("data_connectors.id"), nullable=True, index=True)
     
-    # For destination steps  
-    destination_connector_id = Column(UUID(as_uuid=True), ForeignKey("connectors.id"))
+    # Transformation details
+    transformation_type = Column(Enum(TransformationType), nullable=True, index=True)
+    transformation_config = Column(JSON, nullable=True)
     
-    # Validation and preview
-    is_valid = Column(Boolean, default=True)
-    validation_errors = Column(JSON, default=list)
-    preview_data = Column(JSON)
-    
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    pipeline = relationship("Pipeline", back_populates="steps")
-    source_connector = relationship("Connector", foreign_keys=[source_connector_id], back_populates="source_steps")
-    destination_connector = relationship("Connector", foreign_keys=[destination_connector_id], back_populates="destination_steps")
-    
-    __table_args__ = (
-        UniqueConstraint('pipeline_id', 'step_order', name='unique_step_order_per_pipeline'),
-    )
+    pipeline = relationship("ETLPipeline", back_populates="steps")
+    source_connector = relationship("DataConnector", back_populates="pipeline_steps")
 
 
 class PipelineExecution(Base):
-    """Pipeline execution history and tracking"""
+    """Pipeline execution history."""
     __tablename__ = "pipeline_executions"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("pipelines.id"), nullable=False)
     
-    # Execution metadata
-    execution_number = Column(Integer, nullable=False)  # Sequential execution number
-    status = Column(String(20), default=PipelineStatus.RUNNING.value)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("etl_pipelines.id"), index=True)
+    status = Column(Enum(ExecutionStatus), default=ExecutionStatus.PENDING, index=True)
     
     # Execution details
-    started_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    trigger_type = Column(String(50))  # manual, scheduled, api
+    started_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    started_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     
-    # Progress tracking
-    total_steps = Column(Integer, default=0)
-    completed_steps = Column(Integer, default=0)
-    current_step_id = Column(UUID(as_uuid=True))
-    
-    # Data metrics
+    # Results and logging
     rows_processed = Column(Integer, default=0)
+    rows_successful = Column(Integer, default=0)
     rows_failed = Column(Integer, default=0)
-    data_size_mb = Column(Integer, default=0)
+    execution_log = Column(Text, nullable=True)
+    error_log = Column(Text, nullable=True)
+    execution_metrics = Column(JSON, nullable=True)  # Duration, memory, etc.
     
-    # Error handling
-    error_message = Column(Text)
-    error_details = Column(JSON)
+    # Trigger information
+    trigger_type = Column(String(50), nullable=True, index=True)  # manual, scheduled, webhook
+    trigger_data = Column(JSON, nullable=True)
     
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    started_at = Column(DateTime(timezone=True))
-    completed_at = Column(DateTime(timezone=True))
-    
-    # Execution logs and results
-    execution_log = Column(JSON, default=list)
-    results_summary = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    pipeline = relationship("Pipeline", back_populates="executions")
-    started_by_user = relationship("User")
-    step_executions = relationship("StepExecution", back_populates="pipeline_execution", cascade="all, delete-orphan")
+    pipeline = relationship("ETLPipeline", back_populates="executions")
+    started_by = relationship("User")
 
 
-class StepExecution(Base):
-    """Individual step execution details"""
-    __tablename__ = "step_executions"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    pipeline_execution_id = Column(UUID(as_uuid=True), ForeignKey("pipeline_executions.id"), nullable=False)
-    step_id = Column(UUID(as_uuid=True), ForeignKey("pipeline_steps.id"), nullable=False)
+class TransformationTemplate(Base):
+    """Pre-built transformation templates for non-technical users."""
+    __tablename__ = "transformation_templates"
     
-    # Execution tracking
-    status = Column(String(20), default="pending")
-    step_order = Column(Integer, nullable=False)
-    
-    # Performance metrics
-    rows_input = Column(Integer, default=0)
-    rows_output = Column(Integer, default=0)
-    rows_rejected = Column(Integer, default=0)
-    execution_time_ms = Column(Integer, default=0)
-    memory_used_mb = Column(Integer, default=0)
-    
-    # Error handling
-    error_message = Column(Text)
-    error_details = Column(JSON)
-    
-    # Timestamps
-    started_at = Column(DateTime(timezone=True))
-    completed_at = Column(DateTime(timezone=True))
-    
-    # Execution details
-    input_sample = Column(JSON)  # Sample of input data
-    output_sample = Column(JSON)  # Sample of output data
-    transformation_summary = Column(JSON)  # Summary of what was transformed
-    
-    # Relationships
-    pipeline_execution = relationship("PipelineExecution", back_populates="step_executions")
-    step = relationship("PipelineStep")
-
-
-class PipelineTemplate(Base):
-    """Reusable pipeline templates"""
-    __tablename__ = "pipeline_templates"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    description = Column(Text)
+    description = Column(Text, nullable=True)
+    category = Column(String(100), nullable=False)  # cleaning, formatting, calculation
+    transformation_type = Column(Enum(TransformationType), nullable=False)
     
     # Template configuration
     template_config = Column(JSON, nullable=False)
-    category = Column(String(100))  # e.g., "data-warehouse", "analytics", "migration"
-    tags = Column(JSON, default=list)
-    
-    # Template metadata
-    is_public = Column(Boolean, default=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"))
+    ui_config = Column(JSON, nullable=False)  # How to render in UI
     
     # Usage tracking
     usage_count = Column(Integer, default=0)
-    rating = Column(Integer, default=0)  # 1-5 star rating
+    is_active = Column(Boolean, default=True)
     
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
-    # Relationships
-    creator = relationship("User")
-    organization = relationship("Organization")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

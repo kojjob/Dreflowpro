@@ -44,6 +44,8 @@ class Organization(Base):
     
     # Relationships
     users = relationship("User", back_populates="organization")
+    pipelines = relationship("Pipeline", back_populates="organization")
+    connectors = relationship("Connector", back_populates="organization")
 
 
 class User(Base):
@@ -70,6 +72,8 @@ class User(Base):
     organization = relationship("Organization", back_populates="users")
     api_keys = relationship("APIKey", back_populates="user")
     social_accounts = relationship("SocialAccount", back_populates="user", cascade="all, delete-orphan")
+    created_pipelines = relationship("Pipeline", back_populates="creator")
+    created_connectors = relationship("Connector", back_populates="creator")
     
     @property
     def full_name(self) -> str:

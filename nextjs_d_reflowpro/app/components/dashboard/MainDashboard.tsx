@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import DashboardStats from './DashboardStats';
+import dynamic from 'next/dynamic';
 import Logger from '../../utils/logger';
+import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 
 import UserProfileDropdown from '../ui/UserProfileDropdown';
 import NotificationsDropdown from '../ui/NotificationsDropdown';
@@ -25,17 +26,51 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-// Import all working components directly
-import ProfileSettings from '../profile/ProfileSettings';
-import Preferences from '../profile/Preferences';
-import BillingSubscription from '../profile/BillingSubscription';
-import HelpSupport from '../profile/HelpSupport';
-import DataAnalysisWorkflow from '../data-analysis/DataAnalysisWorkflow';
-import PipelineManager from '../pipelines/PipelineManager';
-import TaskMonitor from '../tasks/TaskMonitor';
-import ConnectorManager from '../connectors/ConnectorManager';
-import ReportsManager from '../reports/ReportsManager';
-import AIInsightsManager from '../ai/AIInsightsManager';
+// Lazy load heavy components for better performance
+const DashboardStats = dynamic(() => import('./DashboardStatsOptimized'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-64 rounded-lg" />,
+  ssr: false
+});
+
+const ProfileSettings = dynamic(() => import('../profile/ProfileSettings'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const Preferences = dynamic(() => import('../profile/Preferences'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const BillingSubscription = dynamic(() => import('../profile/BillingSubscription'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const HelpSupport = dynamic(() => import('../profile/HelpSupport'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const DataAnalysisWorkflow = dynamic(() => import('../data-analysis/DataAnalysisWorkflow'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const PipelineManager = dynamic(() => import('../pipelines/PipelineManagerOptimized'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const TaskMonitor = dynamic(() => import('../tasks/TaskMonitor'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const ConnectorManager = dynamic(() => import('../connectors/ConnectorManager'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const ReportsManager = dynamic(() => import('../reports/ReportsManager'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
+
+const AIInsightsManager = dynamic(() => import('../ai/AIInsightsManager'), {
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />
+});
 
 interface NavigationItem {
   id: string;
@@ -46,31 +81,46 @@ interface NavigationItem {
 }
 
 const MainDashboard: React.FC = () => {
+  // Performance monitoring
+  usePerformanceMonitor({
+    componentName: 'MainDashboard',
+    threshold: 100
+  });
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const [activeView, setActiveView] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Memoize valid tabs for performance
+  const validTabs = useMemo(() => [
+    'overview', 'pipelines', 'connectors', 'data-analysis',
+    'tasks', 'ai-insights', 'profile', 'preferences', 'billing', 'help'
+  ], []);
+
   // Handle URL parameters for direct navigation
   useEffect(() => {
     const tab = searchParams.get('tab');
     Logger.log('📍 URL tab parameter:', tab);
-    if (tab && ['overview', 'pipelines', 'connectors', 'data-analysis', 'tasks', 'ai-insights', 'profile', 'preferences', 'billing', 'help'].includes(tab)) {
+    if (tab && validTabs.includes(tab)) {
       Logger.log('✅ Setting active view to:', tab);
       setActiveView(tab);
     } else if (tab) {
       Logger.log('❌ Invalid tab:', tab);
     }
-  }, [searchParams]);
+  }, [searchParams, validTabs]);
 
-  // Update time every minute for live dashboard feel
+  // Update time every minute for live dashboard feel - optimized
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const navigationItems: NavigationItem[] = [
+  // Navigation is handled inline in the component for better performance
+
+  // Memoized navigation items for performance
+  const navigationItems: NavigationItem[] = useMemo(() => [
     {
       id: 'overview',
       name: 'Overview',
@@ -148,7 +198,7 @@ const MainDashboard: React.FC = () => {
       component: HelpSupport,
       description: 'Get help, find answers, and connect with our support team'
     }
-  ];
+  ], []);
 
   const currentItem = navigationItems.find(item => item.id === activeView) || navigationItems[0];
   const CurrentComponent = currentItem.component;

@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DreflowPro Performance Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; }
+        .metric { display: inline-block; margin: 10px; padding: 15px; background: #e9ecef; border-radius: 4px; }
+        .warning { color: #dc3545; }
+        .recommendation { margin: 10px 0; padding: 10px; background: #d4edda; border-radius: 4px; }
+        .chunk { margin: 5px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>DreflowPro Performance Report</h1>
+        <p>Generated: 2025-08-24T13:38:04.853Z</p>
+    </div>
+    
+    <h2>Summary</h2>
+    <div class="metric">Bundle Size: 1.88 MB</div>
+    <div class="metric">Chunks: 82</div>
+    <div class="metric">Warnings: 0</div>
+    
+    <h2>Bundle Analysis</h2>
+    <p>Total Size: 1.88 MB</p>
+    <p>Largest Chunk: 168.97 KB</p>
+    
+    <h2>Recommendations</h2>
+    <div class="recommendation">Consider optimizing heavy dependencies: chart.js</div><div class="recommendation"><strong>Bundle Optimization</strong><ul><li>Implement dynamic imports for large components</li><li>Use React.lazy() for route-level code splitting</li><li>Optimize package imports (use specific imports instead of entire libraries)</li><li>Consider using lighter alternatives for heavy dependencies</li></ul></div><div class="recommendation"><strong>Asset Optimization</strong><ul><li>Implement next/image for automatic image optimization</li><li>Use WebP/AVIF formats for images</li><li>Implement font optimization with next/font</li><li>Enable compression (gzip/brotli) in production</li></ul></div><div class="recommendation"><strong>Runtime Performance</strong><ul><li>Use React.memo() for expensive components</li><li>Implement useMemo() and useCallback() for expensive calculations</li><li>Optimize re-renders with proper dependency arrays</li><li>Use virtual scrolling for large lists</li></ul></div>
+    
+    <h2>Warnings</h2>
+    
+</body>
+</html>
