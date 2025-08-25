@@ -1,0 +1,36 @@
+# Grafana Dashboard Provisioning Configuration
+apiVersion: 1
+
+providers:
+  # DReflowPro Platform Dashboards
+  - name: 'dreflowpro-dashboards'
+    orgId: 1
+    folder: 'DReflowPro Platform'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/platform
+
+  # System Monitoring Dashboards  
+  - name: 'system-monitoring'
+    orgId: 1
+    folder: 'System Monitoring'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/system
+
+  # Business Intelligence Dashboards
+  - name: 'business-intelligence'
+    orgId: 1
+    folder: 'Business Intelligence'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/business
