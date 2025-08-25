@@ -24,7 +24,9 @@ class Logger {
           return {
             name: arg.name,
             message: arg.message,
-            stack: arg.stack
+            stack: arg.stack,
+            cause: arg.cause,
+            toString: arg.toString()
           };
         }
         
@@ -39,16 +41,29 @@ class Logger {
             // Try to stringify to check if it's serializable
             const stringified = JSON.stringify(arg);
             // If stringification results in '{}' but object has keys, it means non-enumerable properties
-            if (stringified === '{}' && Object.keys(arg).length === 0) {
+            if (stringified === '{}') {
+              const keys = Object.keys(arg);
+              const ownProps = Object.getOwnPropertyNames(arg);
+              
               return {
+                type: 'non_serializable_object',
                 toString: arg.toString(),
                 constructor: arg.constructor?.name || 'Unknown',
                 prototype: Object.getPrototypeOf(arg)?.constructor?.name || 'Unknown',
-                hasOwnProperties: Object.getOwnPropertyNames(arg).length > 0,
-                ownPropertyNames: Object.getOwnPropertyNames(arg).slice(0, 5), // Limit to first 5
+                hasKeys: keys.length > 0,
+                keys: keys.slice(0, 10), // Show first 10 keys
+                hasOwnProperties: ownProps.length > 0,
+                ownPropertyNames: ownProps.slice(0, 10), // Show first 10 properties
+                // Common error/object properties
                 ...(arg.message && { message: arg.message }),
+                ...(arg.name && { name: arg.name }),
                 ...(arg.status && { status: arg.status }),
-                ...(arg.response && { response: 'Response object present' })
+                ...(arg.code && { code: arg.code }),
+                ...(arg.response && { response: 'Response object present' }),
+                ...(arg.componentStack && { componentStack: 'Present' }),
+                ...(arg.errorBoundary && { errorBoundary: 'Present' }),
+                // React error properties
+                ...(arg.digest && { digest: arg.digest })
               };
             }
             return arg;
