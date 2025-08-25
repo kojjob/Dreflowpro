@@ -196,9 +196,9 @@ export const SECURITY_CONFIG = {
     /on\w+\s*=/gi, // Event handlers
     // Path traversal
     /\.\.\//g,
-    /\.\.\\\/g,
+    /\.\.\\/g,
     // Command injection
-    /[;&|`$\(\)\{\}]/g,
+    /[;&|`$(){}]/g,
     // LDAP injection
     /[()&|!]/g
   ],

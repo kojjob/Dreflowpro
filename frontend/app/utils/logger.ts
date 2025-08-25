@@ -69,11 +69,12 @@ class Logger {
             return arg;
           } catch (e) {
             // If it fails due to circular references, extract key properties safely
+            const error = e instanceof Error ? e : new Error('Unknown serialization error');
             return {
               toString: arg.toString(),
               constructor: arg.constructor?.name || 'Unknown',
               keys: Object.keys(arg),
-              serializationError: e.message,
+              serializationError: error.message,
               ...(arg.message && { message: arg.message }),
               ...(arg.status && { status: arg.status }),
               ...(arg.response && { response: 'Response object present' })

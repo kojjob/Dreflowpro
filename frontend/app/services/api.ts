@@ -42,6 +42,10 @@ class ApiService {
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
         signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
       });
 
       clearTimeout(timeoutId);
@@ -58,7 +62,20 @@ class ApiService {
     } catch (error) {
       this.isApiAvailable = false;
       this.lastApiCheck = now;
-      Logger.warn('⚠️ API not available, using mock data:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // Better error categorization
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('ECONNREFUSED');
+      const isTimeoutError = errorMessage.includes('timeout') || errorMessage.includes('aborted');
+      
+      if (isTimeoutError) {
+        Logger.warn('⏱️ API timeout, using mock data');
+      } else if (isNetworkError) {
+        Logger.warn('🌐 Network error, using mock data');
+      } else {
+        Logger.warn('⚠️ API not available, using mock data:', errorMessage);
+      }
+      
       return false;
     }
   }
@@ -152,7 +169,8 @@ class ApiService {
         }
         
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        const errorMessage = errorData.detail || errorData.message || `HTTP error! status: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       return response;
@@ -349,33 +367,41 @@ class ApiService {
 
   async login(credentials: any): Promise<any> {
     try {
-      // For development, use mock login to avoid API dependency issues
-      Logger.log('🔐 Using mock login for development');
+      const isAvailable = await this.checkApiAvailability();
       
-      // Simulate successful login with mock tokens
-      return {
-        access_token: 'mock_access_token_' + Date.now(),
-        refresh_token: 'mock_refresh_token_' + Date.now(),
-        token_type: 'Bearer',
-        expires_in: 3600,
-        user: await mockApiService.getCurrentUser()
-      };
-
-      // Uncomment below for production API usage
-      // const isAvailable = await this.checkApiAvailability();
-      // if (!isAvailable) {
-      //   Logger.log('🔐 API unavailable, using mock login');
-      //   return {
-      //     access_token: 'mock_access_token_' + Date.now(),
-      //     refresh_token: 'mock_refresh_token_' + Date.now(),
-      //     token_type: 'Bearer',
-      //     expires_in: 3600,
-      //     user: await mockApiService.getCurrentUser()
-      //   };
-      // }
-      // return this.post(API_ENDPOINTS.auth.login, credentials);
+      if (isAvailable) {
+        // Try real API login first
+        Logger.log('🔐 Attempting real API login');
+        const response = await this.post(API_ENDPOINTS.auth.login, credentials);
+        Logger.log('✅ Real API login successful');
+        return response;
+      } else {
+        // Fall back to mock login for development
+        Logger.log('🔐 API unavailable, using mock login for development');
+        return {
+          access_token: 'mock_access_token_' + Date.now(),
+          refresh_token: 'mock_refresh_token_' + Date.now(),
+          token_type: 'Bearer',
+          expires_in: 3600,
+          user: await mockApiService.getCurrentUser()
+        };
+      }
     } catch (error) {
-      Logger.warn('Login failed, using mock login:', error);
+      Logger.error('Login failed, falling back to mock login:', error);
+      
+      // Provide better error context for development
+      const errorContext = {
+        credentials: credentials ? { 
+          hasEmail: !!credentials.email, 
+          hasPassword: !!credentials.password,
+          emailLength: credentials.email?.length || 0 
+        } : 'No credentials provided',
+        apiBaseUrl: this.baseUrl,
+        timestamp: new Date().toISOString()
+      };
+      
+      Logger.debug('Login error context:', errorContext);
+      
       return {
         access_token: 'mock_access_token_' + Date.now(),
         refresh_token: 'mock_refresh_token_' + Date.now(),
@@ -396,19 +422,32 @@ class ApiService {
 
   async getCurrentUser(): Promise<any> {
     try {
-      // For development, always use mock data to avoid loading issues
-      Logger.log('👤 Using mock user data for development');
-      return mockApiService.getCurrentUser();
-
-      // Uncomment below for production API usage
-      // const isAvailable = await this.checkApiAvailability();
-      // if (!isAvailable) {
-      //   Logger.log('👤 Using mock user data');
-      //   return mockApiService.getCurrentUser();
-      // }
-      // return this.get(API_ENDPOINTS.auth.me);
+      const isAvailable = await this.checkApiAvailability();
+      
+      if (isAvailable) {
+        // Try real API first
+        Logger.log('👤 Fetching user from real API');
+        const user = await this.get(API_ENDPOINTS.auth.me);
+        Logger.log('✅ User fetched from API successfully');
+        return user;
+      } else {
+        // Fall back to mock data for development
+        Logger.log('👤 API unavailable, using mock user data for development');
+        return mockApiService.getCurrentUser();
+      }
     } catch (error) {
-      Logger.warn('Failed to fetch user from API, using mock data:', error);
+      Logger.error('Failed to fetch user from API, falling back to mock data:', error);
+      
+      // Provide error context for debugging
+      const errorContext = {
+        isAuthenticated: this.isAuthenticated(),
+        hasAuthHeaders: await this.getAuthHeaders().then(headers => !!headers.Authorization).catch(() => false),
+        apiBaseUrl: this.baseUrl,
+        timestamp: new Date().toISOString()
+      };
+      
+      Logger.debug('User fetch error context:', errorContext);
+      
       return mockApiService.getCurrentUser();
     }
   }

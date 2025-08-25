@@ -74,18 +74,46 @@ const PipelineManagerOptimized: React.FC = () => {
   const fetchPipelines = useCallback(async () => {
     try {
       setError(null);
-      const response = await apiService.get('/pipelines');
+      const response = await apiService.getPipelines();
       setPipelines(response.data || []);
       Logger.log('✅ Pipelines loaded:', response.data?.length || 0);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to load pipelines';
+      let errorMessage = 'Failed to load pipelines';
+      
+      // Enhanced error handling with better user messages
+      if (err.message?.includes('API endpoint not available') || err.message?.includes('Not Found')) {
+        errorMessage = 'Pipeline service is not available. Check your connection or try again later.';
+        Logger.warn('🔌 Pipeline API not available, using empty state');
+        setPipelines([]); // Set empty state for better UX
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      Logger.error('❌ Failed to load pipelines:', err);
+      
+      // Enhanced error context for debugging
+      const errorContext = {
+        originalError: err,
+        errorType: err.name || err.constructor?.name || 'Unknown',
+        errorMessage: err.message || 'No error message available',
+        httpStatus: err.response?.status || null,
+        httpStatusText: err.response?.statusText || null,
+        hasResponse: !!err.response,
+        timestamp: new Date().toISOString(),
+        component: 'PipelineManagerOptimized',
+        operation: 'fetchPipelines',
+        userId: user?.id || 'anonymous',
+        url: typeof window !== 'undefined' ? window.location.href : 'Unknown'
+      };
+      
+      Logger.error('❌ Failed to load pipelines:', errorContext);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   // Initial load
   useEffect(() => {
