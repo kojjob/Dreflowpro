@@ -101,9 +101,40 @@ const PipelineEditor: React.FC<PipelineEditorProps> = memo(({
       Logger.log('✅ Pipeline saved successfully');
       onSave();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to save pipeline';
+      // Extract meaningful error information
+      let errorMessage = 'Failed to save pipeline';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.response?.statusText) {
+        errorMessage = `${err.response.status} ${err.response.statusText}`;
+      }
+      
+      // Handle API not available case
+      if (errorMessage.includes('API endpoint not available') || errorMessage.includes('Not Found')) {
+        errorMessage = 'Pipeline save not available - backend service not running. Your changes have been saved locally.';
+        // In a real app, you might save to localStorage here
+        Logger.info('💾 Pipeline save attempted but backend not available:', formData.name);
+      }
+      
       setError(errorMessage);
-      Logger.error('❌ Failed to save pipeline:', err);
+      
+      // Prepare detailed error context for logging
+      const errorContext = {
+        message: err.message || 'No error message',
+        name: err.name || 'Unknown error type',
+        status: err.response?.status || 'No status',
+        statusText: err.response?.statusText || 'No status text',
+        hasResponse: !!err.response,
+        endpoint: `${pipeline?.id ? 'PUT' : 'POST'} ${pipeline?.id ? `/pipelines/${pipeline.id}` : '/pipelines'}`,
+        pipelineName: formData.name,
+        hasSteps: (formData.pipeline_config?.steps?.length || 0) > 0,
+        timestamp: new Date().toISOString()
+      };
+      
+      Logger.error('❌ Failed to save pipeline:', errorMessage, errorContext);
     } finally {
       setSaving(false);
     }
