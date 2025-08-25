@@ -33,6 +33,14 @@ async def get_ai_insights(
 ):
     """Get comprehensive AI insights for the user's organization."""
     
+    # Validate time range
+    valid_time_ranges = ["1h", "24h", "7d", "30d"]
+    if time_range not in valid_time_ranges:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid time range '{time_range}'. Must be one of: {', '.join(valid_time_ranges)}"
+        )
+    
     try:
         # Use a dummy org_id for testing - must be valid UUID format
         org_id = "550e8400-e29b-41d4-a716-446655440000"

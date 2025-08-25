@@ -1,0 +1,155 @@
+# Prometheus configuration for DReflowPro ETL Platform
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'dreflowpro-production'
+    replica: 'prometheus-01'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # Add Alertmanager targets when available
+          # - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - "rules/*.yml"
+
+# Scraping configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # DReflowPro FastAPI Application
+  - job_name: 'dreflowpro-app'
+    static_configs:
+      - targets: ['app:8000']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: app:8000
+
+  # PostgreSQL Database Metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):[0-9]+'
+        replacement: '${1}'
+
+  # Redis Cache Metrics  
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Nginx Reverse Proxy Metrics
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 30s
+    metrics_path: /nginx_status
+    params:
+      format: ['prometheus']
+
+  # Node Exporter for System Metrics (if deployed)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Grafana Metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    scrape_interval: 60s
+    metrics_path: /metrics
+
+  # Custom ETL Pipeline Metrics
+  - job_name: 'etl-pipelines'
+    static_configs:
+      - targets: ['app:8000']
+    scrape_interval: 30s
+    metrics_path: /api/v1/monitoring/pipeline-metrics
+    bearer_token_file: /etc/prometheus/secrets/api_token
+    params:
+      format: ['prometheus']
+
+  # API Performance Metrics
+  - job_name: 'api-performance'
+    static_configs:
+      - targets: ['app:8000']
+    scrape_interval: 15s
+    metrics_path: /api/v1/monitoring/performance-metrics
+    bearer_token_file: /etc/prometheus/secrets/api_token
+
+  # Business Metrics
+  - job_name: 'business-metrics'
+    static_configs:
+      - targets: ['app:8000']
+    scrape_interval: 60s
+    metrics_path: /api/v1/monitoring/business-metrics
+    bearer_token_file: /etc/prometheus/secrets/api_token
+
+  # Health Check Monitoring
+  - job_name: 'health-checks'
+    static_configs:
+      - targets: 
+        - 'app:8000'
+        - 'postgres:5432'
+        - 'redis:6379'
+    scrape_interval: 15s
+    metrics_path: /health
+    params:
+      format: ['prometheus']
+
+  # Multi-tenant Metrics
+  - job_name: 'tenant-metrics'
+    static_configs:
+      - targets: ['app:8000']
+    scrape_interval: 60s
+    metrics_path: /api/v1/monitoring/tenant-metrics
+    bearer_token_file: /etc/prometheus/secrets/api_token
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "https://your-remote-prometheus/api/v1/write"
+#     basic_auth:
+#       username: "username"
+#       password: "password"
+
+# Remote read configuration
+# remote_read:
+#   - url: "https://your-remote-prometheus/api/v1/read"
+#     basic_auth:
+#       username: "username"
+#       password: "password"

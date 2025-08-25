@@ -58,6 +58,7 @@ class ETLPipeline(Base):
     
     # Metadata
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    tenant_id = Column(String, ForeignKey("tenants.id"), nullable=True, index=True)  # Multi-tenant support
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     tags = Column(JSON, nullable=True)  # Array of tags
     version = Column(Integer, default=1)
@@ -65,11 +66,13 @@ class ETLPipeline(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships - Phase 1: Comment out relationships to non-existent Phase 2 models
-    # organization = relationship("Organization", back_populates="pipelines")  # Phase 2
-    # created_by = relationship("User", back_populates="created_pipelines")  # Phase 2 
+    # Relationships
+    organization = relationship("Organization", back_populates="pipelines")
+    tenant = relationship("Tenant", back_populates="pipelines")
+    created_by = relationship("User", back_populates="created_pipelines")
     steps = relationship("PipelineStep", back_populates="pipeline", cascade="all, delete-orphan")
     executions = relationship("PipelineExecution", back_populates="pipeline")
+    telemetry_metrics = relationship("TelemetryMetric", back_populates="pipeline")
 
 
 class PipelineStep(Base):
@@ -129,6 +132,7 @@ class PipelineExecution(Base):
     # Relationships
     pipeline = relationship("ETLPipeline", back_populates="executions")
     started_by = relationship("User")
+    telemetry_metrics = relationship("TelemetryMetric", back_populates="execution")
 
 
 class TransformationTemplate(Base):

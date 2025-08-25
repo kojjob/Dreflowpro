@@ -14,6 +14,9 @@ from .connector import (
     ConnectorType, ConnectorStatus
 )
 
+# Phase 3 models - multi-tenancy and enterprise features
+from .tenant import Tenant, TenantApiKey, TenantUsageLog, TenantInvitation
+
 __all__ = [
     # User models (Phase 1)
     "Organization",
@@ -39,5 +42,11 @@ __all__ = [
     "DataConnector",
     "DataPreview",
     "ConnectorType",
-    "ConnectorStatus"
+    "ConnectorStatus",
+    
+    # Tenant models (Phase 3)
+    "Tenant",
+    "TenantApiKey",
+    "TenantUsageLog",
+    "TenantInvitation"
 ]

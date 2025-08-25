@@ -42,6 +42,97 @@ class RedisManager:
         except Exception:
             pass
         return False
+    
+    # Proxy methods for direct Redis operations
+    async def get(self, key: str):
+        """Get a value from Redis."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.get(key)
+    
+    async def set(self, key: str, value, ex=None):
+        """Set a value in Redis."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.set(key, value, ex=ex)
+    
+    async def setex(self, name: str, time: int, value):
+        """Set a value with expiration."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.setex(name, time, value)
+    
+    async def delete(self, *keys):
+        """Delete one or more keys."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.delete(*keys)
+    
+    async def exists(self, key: str):
+        """Check if key exists."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.exists(key)
+    
+    async def ttl(self, key: str):
+        """Get time to live."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.ttl(key)
+    
+    async def expire(self, key: str, time: int):
+        """Set expiration time."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.expire(key, time)
+    
+    async def keys(self, pattern: str):
+        """Get keys matching pattern."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.keys(pattern)
+    
+    async def info(self, section: str = None):
+        """Get Redis info."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.info(section)
+    
+    async def pipeline(self):
+        """Get Redis pipeline."""
+        if not self.redis:
+            await self.connect()
+        return self.redis.pipeline()
+    
+    async def zremrangebyscore(self, name: str, min_val, max_val):
+        """Remove members by score range."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.zremrangebyscore(name, min_val, max_val)
+    
+    async def zcard(self, name: str):
+        """Get cardinality of sorted set."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.zcard(name)
+    
+    async def zadd(self, name: str, mapping: dict):
+        """Add members to sorted set."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.zadd(name, mapping)
+    
+    async def zrem(self, name: str, *values):
+        """Remove members from sorted set."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.zrem(name, *values)
+    
+    async def zrange(self, name: str, start: int, end: int, withscores: bool = False):
+        """Get range from sorted set."""
+        if not self.redis:
+            await self.connect()
+        return await self.redis.zrange(name, start, end, withscores=withscores)
 
 # Global Redis manager instance
 redis_manager = RedisManager()

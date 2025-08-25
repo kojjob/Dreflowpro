@@ -49,16 +49,18 @@ class DataConnector(Base):
     
     # Metadata
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    tenant_id = Column(String, ForeignKey("tenants.id"), nullable=True, index=True)  # Multi-tenant support
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     last_tested = Column(DateTime(timezone=True), nullable=True)
     last_used = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships - Phase 1: Comment out relationships to non-existent Phase 2 models
-    # organization = relationship("Organization", back_populates="connectors")  # Phase 2
-    created_by = relationship("User")
-    # pipeline_steps = relationship("PipelineStep", back_populates="source_connector")  # Phase 2
+    # Relationships
+    organization = relationship("Organization", back_populates="connectors")
+    tenant = relationship("Tenant", back_populates="connectors")
+    created_by = relationship("User", back_populates="created_connectors")
+    pipeline_steps = relationship("PipelineStep", back_populates="source_connector")
 
 
 class DataPreview(Base):

@@ -32,6 +32,16 @@ class SecurityUtils:
         return secrets.token_urlsafe(32)
     
     @staticmethod
+    def hash_api_key(api_key: str) -> str:
+        """Hash an API key for secure storage."""
+        return pwd_context.hash(api_key)
+    
+    @staticmethod
+    def verify_api_key(plain_key: str, hashed_key: str) -> bool:
+        """Verify an API key against its hash."""
+        return pwd_context.verify(plain_key, hashed_key)
+    
+    @staticmethod
     def generate_verification_token(user_id: Union[str, uuid.UUID]) -> str:
         """Generate email verification token."""
         payload = {
@@ -320,3 +330,41 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Hash a password (legacy function)."""
     return SecurityUtils.get_password_hash(password)
+
+def generate_api_key() -> tuple[str, str]:
+    """Generate an API key and return both plain and hashed versions."""
+    plain_key = SecurityUtils.generate_api_key()
+    hashed_key = SecurityUtils.hash_api_key(plain_key)
+    return plain_key, hashed_key
+
+def hash_api_key(api_key: str) -> str:
+    """Hash an API key for secure storage."""
+    return SecurityUtils.hash_api_key(api_key)
+
+def verify_api_key(plain_key: str, hashed_key: str) -> bool:
+    """Verify an API key against its hash."""
+    return SecurityUtils.verify_api_key(plain_key, hashed_key)
+
+
+async def get_current_user_websocket(token: str, db: AsyncSession) -> Optional[User]:
+    """Get current user for WebSocket connections."""
+    try:
+        # Verify token
+        payload = JWTManager().verify_access_token(token)
+        if not payload:
+            return None
+        
+        # Get user ID from token
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        
+        # Get user from database
+        user = await AuthService.get_user_by_id(db, user_id)
+        if not user or not user.is_active:
+            return None
+        
+        return user
+        
+    except Exception:
+        return None
