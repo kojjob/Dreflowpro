@@ -82,7 +82,13 @@ class ConnectorService:
         limit: int = 100,
         connector_type: Optional[ConnectorType] = None,
         status: Optional[ConnectorStatus] = None,
-        organization_id: Optional[UUID] = None
+        organization_id: Optional[UUID] = None,
+        search: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        created_after: Optional[datetime] = None,
+        created_before: Optional[datetime] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None
     ) -> Tuple[List[DataConnector], int]:
         """Get a list of connectors with filtering and pagination."""
         try:
@@ -98,13 +104,30 @@ class ConnectorService:
                 filters.append(DataConnector.status == status)
             if organization_id:
                 filters.append(DataConnector.organization_id == organization_id)
+            if search:
+                search_filter = DataConnector.name.ilike(f"%{search}%") | DataConnector.description.ilike(f"%{search}%")
+                filters.append(search_filter)
+            if created_after:
+                filters.append(DataConnector.created_at >= created_after)
+            if created_before:
+                filters.append(DataConnector.created_at <= created_before)
             
             if filters:
                 query = query.where(and_(*filters))
                 count_query = count_query.where(and_(*filters))
             
-            # Apply ordering and pagination
-            query = query.order_by(DataConnector.created_at.desc()).offset(skip).limit(limit)
+            # Apply ordering
+            if sort_by and hasattr(DataConnector, sort_by):
+                sort_column = getattr(DataConnector, sort_by)
+                if sort_order == "desc":
+                    query = query.order_by(sort_column.desc())
+                else:
+                    query = query.order_by(sort_column.asc())
+            else:
+                query = query.order_by(DataConnector.created_at.desc())
+            
+            # Apply pagination
+            query = query.offset(skip).limit(limit)
             
             # Execute queries
             result = await self.db.execute(query)

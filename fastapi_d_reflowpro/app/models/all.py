@@ -1,42 +1,52 @@
-# Import all models here to ensure they are registered with SQLAlchemy
+# Import all models - authentication, pipelines, and connectors
 
+# Phase 1 models - authentication and security
 from .user import Organization, User, APIKey
 from .token_family import TokenFamily, RefreshToken, TokenAuditLog, TokenStatus
-from .connector import DataConnector, DataPreview, ConnectorType, ConnectorStatus
+
+# Phase 2 models - pipelines and connectors  
 from .pipeline import (
-    ETLPipeline, 
-    PipelineStep, 
-    PipelineExecution, 
-    TransformationTemplate,
-    PipelineStatus,
-    ExecutionStatus,
-    TransformationType
+    ETLPipeline, PipelineStep, PipelineExecution, 
+    TransformationTemplate, PipelineStatus, ExecutionStatus, TransformationType
+)
+from .connector import (
+    DataConnector, DataPreview,
+    ConnectorType, ConnectorStatus
 )
 
+# Phase 3 models - multi-tenancy and enterprise features
+from .tenant import Tenant, TenantApiKey, TenantUsageLog, TenantInvitation
+
 __all__ = [
-    # User models
+    # User models (Phase 1)
     "Organization",
     "User", 
     "APIKey",
     
-    # Token models
+    # Token models (Phase 1) 
     "TokenFamily",
     "RefreshToken",
     "TokenAuditLog",
     "TokenStatus",
     
-    # Connector models
+    # Pipeline models (Phase 2)
+    "ETLPipeline",
+    "PipelineStep", 
+    "PipelineExecution",
+    "TransformationTemplate",
+    "PipelineStatus",
+    "ExecutionStatus", 
+    "TransformationType",
+    
+    # Connector models (Phase 2)
     "DataConnector",
-    "DataPreview", 
+    "DataPreview",
     "ConnectorType",
     "ConnectorStatus",
     
-    # Pipeline models
-    "ETLPipeline",
-    "PipelineStep",
-    "PipelineExecution", 
-    "TransformationTemplate",
-    "PipelineStatus",
-    "ExecutionStatus",
-    "TransformationType"
+    # Tenant models (Phase 3)
+    "Tenant",
+    "TenantApiKey",
+    "TenantUsageLog",
+    "TenantInvitation"
 ]

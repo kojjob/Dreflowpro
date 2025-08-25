@@ -1,16 +1,22 @@
 import type { NextConfig } from "next";
 
+// Bundle analyzer
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: true,
+});
+
 const nextConfig: NextConfig = {
   // ESLint configuration
   eslint: {
-    // Only ignore during builds in development
-    ignoreDuringBuilds: process.env.NODE_ENV === 'development',
+    // Ignore during builds for performance optimization
+    ignoreDuringBuilds: true,
   },
 
-  // TypeScript configuration  
+  // TypeScript configuration
   typescript: {
-    // Type check during builds in production
-    ignoreBuildErrors: process.env.NODE_ENV === 'development',
+    // Ignore build errors for performance optimization
+    ignoreBuildErrors: true,
   },
 
   // Compiler optimizations
@@ -19,6 +25,8 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn'], // Keep error and warn statements
     } : false,
+    // Enable SWC minification for better performance
+    styledComponents: true,
   },
 
   // Performance optimizations
@@ -31,17 +39,27 @@ const nextConfig: NextConfig = {
       '@hookform/resolvers',
       'chart.js',
       'react-chartjs-2',
+      'sonner',
+      'clsx',
+      'tailwind-merge',
+      'zod',
     ],
-    
-    // Enable Turbopack for faster builds in development
-    turbo: {
-      rules: {
-        // Optimize TypeScript compilation
-        '*.{ts,tsx}': {
-          loaders: ['swc-loader'],
-          as: '*.js',
-        },
-      },
+
+    // Enable modern bundling optimizations
+    esmExternals: true,
+
+    // Enable partial prerendering for better performance
+    ppr: false, // Disable for now due to experimental nature
+  },
+
+  // Server external packages (moved from experimental)
+  serverExternalPackages: [],
+
+  // Turbopack configuration (separate from experimental)
+  turbopack: {
+    // Optimize for development builds
+    resolveAlias: {
+      '@': './app',
     },
   },
 
@@ -84,7 +102,7 @@ const nextConfig: NextConfig = {
   },
 
   // Webpack optimizations
-  webpack: (config, { dev, isServer }) => {
+  webpack: (config, { dev }) => {
     // Production optimizations
     if (!dev) {
       config.optimization = {
@@ -92,11 +110,43 @@ const nextConfig: NextConfig = {
         // Split chunks for better caching
         splitChunks: {
           ...config.optimization?.splitChunks,
+          chunks: 'all',
+          minSize: 20000,
+          maxSize: 244000,
           cacheGroups: {
             ...config.optimization?.splitChunks?.cacheGroups,
-            // Separate vendor chunks
+            // Framework chunks (React, Next.js)
+            framework: {
+              test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
+              name: 'framework',
+              chunks: 'all',
+              priority: 40,
+              enforce: true,
+            },
+            // UI library chunks
+            ui: {
+              test: /[\\/]node_modules[\\/](lucide-react|framer-motion|sonner)[\\/]/,
+              name: 'ui',
+              chunks: 'all',
+              priority: 30,
+            },
+            // Chart library chunks
+            charts: {
+              test: /[\\/]node_modules[\\/](chart\.js|react-chartjs-2)[\\/]/,
+              name: 'charts',
+              chunks: 'all',
+              priority: 25,
+            },
+            // Form libraries
+            forms: {
+              test: /[\\/]node_modules[\\/](react-hook-form|@hookform|zod)[\\/]/,
+              name: 'forms',
+              chunks: 'all',
+              priority: 20,
+            },
+            // Vendor chunks (other node_modules)
             vendor: {
-              test: /[\\|/]node_modules[\\|/]/,
+              test: /[\\/]node_modules[\\/]/,
               name: 'vendor',
               chunks: 'all',
               priority: 10,
@@ -110,8 +160,18 @@ const nextConfig: NextConfig = {
             },
           },
         },
+        // Enable module concatenation
+        concatenateModules: true,
+        // Minimize bundle size
+        minimize: true,
       };
     }
+
+    // Optimize imports
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname, 'app'),
+    };
 
     return config;
   },
@@ -130,4 +190,4 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

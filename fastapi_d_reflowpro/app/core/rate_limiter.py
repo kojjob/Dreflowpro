@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, status
 from functools import wraps
 import asyncio
 
-from .redis import RedisManager, redis_manager
+from .redis import redis_manager
 
 logger = logging.getLogger(__name__)
 
@@ -52,27 +52,103 @@ class RateLimitConfig:
         'block_duration': 60     # 1 minute block
     }
 
-class RateLimiter:
-    """Sliding window rate limiter using Redis for persistence and performance."""
+class AdaptiveRateLimiter:
+    """Enhanced adaptive rate limiter with intelligent burst handling and performance optimization."""
     
     def __init__(self):
         self.redis = redis_manager
+        self.burst_multiplier = 1.5  # Allow 50% burst above normal limit
+        self.reputation_scores = {}  # In-memory reputation tracking
+        self.circuit_breaker_threshold = 0.8  # Trip breaker at 80% error rate
+        
+    async def get_reputation_score(self, identifier: str) -> float:
+        """Get reputation score for identifier (0.0 = bad, 1.0 = excellent)."""
+        try:
+            # Check Redis for persistent reputation data
+            reputation_key = f"reputation:{identifier}"
+            cached_score = await self.redis.get(reputation_key)
+            
+            if cached_score:
+                return float(cached_score)
+            
+            # Default reputation for new identifiers
+            return 0.5
+            
+        except Exception as e:
+            logger.error(f"Error getting reputation score: {e}")
+            return 0.5
+    
+    async def update_reputation(self, identifier: str, success: bool):
+        """Update reputation based on request success/failure."""
+        try:
+            current_score = await self.get_reputation_score(identifier)
+            
+            if success:
+                # Gradually improve reputation on success
+                new_score = min(1.0, current_score + 0.01)
+            else:
+                # Quickly degrade reputation on failure
+                new_score = max(0.0, current_score - 0.05)
+            
+            reputation_key = f"reputation:{identifier}"
+            await self.redis.setex(reputation_key, 86400, str(new_score))  # 24 hour TTL
+            
+        except Exception as e:
+            logger.error(f"Error updating reputation: {e}")
+    
+    async def get_adaptive_limits(self, identifier: str, base_max: int, window_seconds: int) -> tuple:
+        """Calculate adaptive limits based on reputation and system load."""
+        reputation = await self.get_reputation_score(identifier)
+        
+        # Good reputation gets higher limits
+        reputation_multiplier = 0.5 + (reputation * 1.5)  # Range: 0.5x to 2.0x
+        
+        # Check system load (simplified version)
+        system_load = await self._get_system_load()
+        load_multiplier = max(0.2, 1.0 - system_load)  # Reduce limits under high load
+        
+        # Calculate final limits
+        adaptive_max = int(base_max * reputation_multiplier * load_multiplier)
+        
+        # Allow burst capacity for trusted users
+        burst_max = int(adaptive_max * self.burst_multiplier) if reputation > 0.7 else adaptive_max
+        
+        return adaptive_max, burst_max
+    
+    async def _get_system_load(self) -> float:
+        """Get system load metric (0.0 = idle, 1.0 = overloaded)."""
+        try:
+            # Simple load estimation based on Redis memory usage
+            info = await self.redis.info('memory')
+            used_memory = info.get('used_memory', 0)
+            max_memory = info.get('maxmemory', 0)
+            
+            if max_memory > 0:
+                memory_ratio = used_memory / max_memory
+                return min(1.0, memory_ratio)
+            
+            return 0.1  # Low load if we can't determine
+            
+        except Exception:
+            return 0.1  # Assume low load on error
     
     async def check_rate_limit(
         self, 
         identifier: str, 
         max_attempts: int, 
         window_seconds: int, 
-        block_duration: int = None
+        block_duration: int = None,
+        adaptive: bool = True
     ) -> Tuple[bool, Dict]:
         """
-        Check if request is within rate limits using sliding window algorithm.
+        Enhanced rate limit check with adaptive limits and intelligent burst handling.
         
         Args:
             identifier: Unique identifier (IP, user_id, etc.)
-            max_attempts: Maximum attempts allowed in window
+            max_attempts: Base maximum attempts allowed in window
             window_seconds: Time window in seconds
             block_duration: How long to block after exceeding limit
+            adaptive: Whether to use adaptive limits based on reputation
             
         Returns:
             Tuple of (is_allowed, info_dict)
@@ -81,9 +157,16 @@ class RateLimiter:
             current_time = time.time()
             window_start = current_time - window_seconds
             
-            # Redis key for this identifier and endpoint
+            # Get adaptive limits if enabled
+            if adaptive:
+                adaptive_max, burst_max = await self.get_adaptive_limits(identifier, max_attempts, window_seconds)
+            else:
+                adaptive_max = burst_max = max_attempts
+            
+            # Redis keys for this identifier
             key = f"rate_limit:{identifier}"
             block_key = f"rate_limit_block:{identifier}"
+            burst_key = f"rate_limit_burst:{identifier}"
             
             # Check if identifier is currently blocked
             is_blocked = await self.redis.exists(block_key)
@@ -93,7 +176,9 @@ class RateLimiter:
                     'blocked': True,
                     'reset_time': current_time + block_ttl,
                     'remaining_attempts': 0,
-                    'window_seconds': window_seconds
+                    'window_seconds': window_seconds,
+                    'adaptive_max': adaptive_max,
+                    'reputation': await self.get_reputation_score(identifier)
                 }
             
             # Use Redis pipeline for atomic operations
@@ -101,37 +186,67 @@ class RateLimiter:
             
             # Remove old entries outside the window
             pipe.zremrangebyscore(key, 0, window_start)
+            pipe.zremrangebyscore(burst_key, 0, window_start - 60)  # Burst window is shorter
             
             # Count current attempts in window
             pipe.zcard(key)
+            pipe.zcard(burst_key)
             
             # Add current request
             pipe.zadd(key, {str(current_time): current_time})
+            pipe.zadd(burst_key, {str(current_time): current_time})
             
-            # Set expiration on the key
+            # Set expiration on the keys
             pipe.expire(key, window_seconds + 1)
+            pipe.expire(burst_key, 120)  # 2-minute burst tracking
             
             results = await pipe.execute()
-            current_attempts = results[1] + 1  # +1 for the current request
+            current_attempts = results[2] + 1  # +1 for the current request
+            burst_attempts = results[3] + 1
             
-            remaining_attempts = max(0, max_attempts - current_attempts)
+            # Check burst limits first (for short-term protection)
+            if burst_attempts > burst_max and adaptive:
+                logger.warning(f"Burst limit exceeded for {identifier}: {burst_attempts} > {burst_max}")
+                # Temporary burst block (shorter duration)
+                temp_block_duration = min(60, block_duration or 60)  # Max 1 minute burst block
+                await self.redis.setex(f"{block_key}_burst", temp_block_duration, "burst_blocked")
+                await self.update_reputation(identifier, False)
+                
+                return False, {
+                    'blocked': True,
+                    'burst_blocked': True,
+                    'reset_time': current_time + temp_block_duration,
+                    'remaining_attempts': 0,
+                    'window_seconds': window_seconds,
+                    'adaptive_max': adaptive_max,
+                    'reputation': await self.get_reputation_score(identifier)
+                }
             
-            if current_attempts > max_attempts:
+            remaining_attempts = max(0, adaptive_max - current_attempts)
+            
+            # Check main rate limit
+            if current_attempts > adaptive_max:
                 # Rate limit exceeded - block if block_duration is set
                 if block_duration:
                     await self.redis.setex(block_key, block_duration, "blocked")
                 
                 # Remove the current request since it's blocked
                 await self.redis.zrem(key, str(current_time))
+                await self.redis.zrem(burst_key, str(current_time))
+                
+                # Update reputation negatively
+                await self.update_reputation(identifier, False)
                 
                 logger.warning(
                     f"Rate limit exceeded for {identifier}",
                     extra={
                         'identifier': identifier,
                         'attempts': current_attempts,
-                        'max_attempts': max_attempts,
+                        'adaptive_max': adaptive_max,
+                        'base_max': max_attempts,
                         'window_seconds': window_seconds,
-                        'blocked_duration': block_duration
+                        'blocked_duration': block_duration,
+                        'reputation': await self.get_reputation_score(identifier)
                     }
                 )
                 
@@ -139,10 +254,15 @@ class RateLimiter:
                     'blocked': True,
                     'reset_time': current_time + block_duration if block_duration else current_time + window_seconds,
                     'remaining_attempts': 0,
-                    'window_seconds': window_seconds
+                    'window_seconds': window_seconds,
+                    'adaptive_max': adaptive_max,
+                    'reputation': await self.get_reputation_score(identifier)
                 }
             
-            # Calculate when the window resets (when oldest entry expires)
+            # Request allowed - update reputation positively
+            await self.update_reputation(identifier, True)
+            
+            # Calculate when the window resets
             oldest_entries = await self.redis.zrange(key, 0, 0, withscores=True)
             if oldest_entries:
                 oldest_time = oldest_entries[0][1]
@@ -154,11 +274,17 @@ class RateLimiter:
                 'blocked': False,
                 'reset_time': reset_time,
                 'remaining_attempts': remaining_attempts,
-                'window_seconds': window_seconds
+                'window_seconds': window_seconds,
+                'adaptive_max': adaptive_max,
+                'base_max': max_attempts,
+                'reputation': await self.get_reputation_score(identifier),
+                'current_attempts': current_attempts,
+                'burst_attempts': burst_attempts,
+                'burst_max': burst_max
             }
             
         except Exception as e:
-            logger.error(f"Rate limiter error: {e}")
+            logger.error(f"Enhanced rate limiter error: {e}")
             # Fail open - allow request if rate limiter fails
             return True, {
                 'blocked': False,
@@ -206,8 +332,11 @@ class RateLimiter:
             logger.error(f"Error getting rate limit status for {identifier}: {e}")
             return {'error': 'Rate limiter unavailable'}
 
+# For backward compatibility, maintain the old class name
+RateLimiter = AdaptiveRateLimiter
+
 # Global rate limiter instance
-rate_limiter = RateLimiter()
+rate_limiter = AdaptiveRateLimiter()
 
 def get_client_identifier(request: Request) -> str:
     """Get unique identifier for rate limiting (IP + User-Agent hash)."""

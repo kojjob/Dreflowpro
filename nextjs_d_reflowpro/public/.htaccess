@@ -1,0 +1,163 @@
+# DreflowPro Performance Optimization - Apache Configuration
+
+# Enable compression
+<IfModule mod_deflate.c>
+    # Compress HTML, CSS, JavaScript, Text, XML and fonts
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+    AddOutputFilterByType DEFLATE application/x-font
+    AddOutputFilterByType DEFLATE application/x-font-opentype
+    AddOutputFilterByType DEFLATE application/x-font-otf
+    AddOutputFilterByType DEFLATE application/x-font-truetype
+    AddOutputFilterByType DEFLATE application/x-font-ttf
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE font/opentype
+    AddOutputFilterByType DEFLATE font/otf
+    AddOutputFilterByType DEFLATE font/ttf
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE image/x-icon
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+
+    # Remove browser bugs (only needed for really old browsers)
+    BrowserMatch ^Mozilla/4 gzip-only-text/html
+    BrowserMatch ^Mozilla/4\.0[678] no-gzip
+    BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+    Header append Vary User-Agent
+</IfModule>
+
+# Enable Brotli compression if available
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/plain
+    AddOutputFilterByType BROTLI_COMPRESS text/css
+    AddOutputFilterByType BROTLI_COMPRESS text/xml
+    AddOutputFilterByType BROTLI_COMPRESS text/javascript
+    AddOutputFilterByType BROTLI_COMPRESS application/javascript
+    AddOutputFilterByType BROTLI_COMPRESS application/json
+    AddOutputFilterByType BROTLI_COMPRESS application/xml
+    AddOutputFilterByType BROTLI_COMPRESS application/rss+xml
+    AddOutputFilterByType BROTLI_COMPRESS application/atom+xml
+    AddOutputFilterByType BROTLI_COMPRESS image/svg+xml
+</IfModule>
+
+# Leverage Browser Caching
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Images
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/avif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    
+    # Fonts
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+    
+    # CSS and JavaScript
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    
+    # HTML
+    ExpiresByType text/html "access plus 1 hour"
+    
+    # Data
+    ExpiresByType application/json "access plus 1 hour"
+    ExpiresByType application/xml "access plus 1 hour"
+    ExpiresByType text/xml "access plus 1 hour"
+    
+    # Manifest files
+    ExpiresByType application/manifest+json "access plus 1 week"
+    ExpiresByType text/cache-manifest "access plus 0 seconds"
+    
+    # Default
+    ExpiresDefault "access plus 1 month"
+</IfModule>
+
+# Cache-Control Headers
+<IfModule mod_headers.c>
+    # Static assets with versioning - cache for 1 year
+    <FilesMatch "\.(css|js|png|jpg|jpeg|gif|webp|avif|ico|svg|woff|woff2|ttf|otf)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    
+    # HTML files - cache for 1 hour
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    
+    # JSON and XML - cache for 1 hour
+    <FilesMatch "\.(json|xml)$">
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    
+    # Service Worker - no cache
+    <FilesMatch "sw\.js$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+    
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Remove ETag (we use Cache-Control instead)
+    Header unset ETag
+    FileETag None
+</IfModule>
+
+# Enable HTTP/2 Server Push (if supported)
+<IfModule mod_http2.c>
+    H2PushResource /fonts/geist-sans.woff2
+    H2PushResource /css/globals.css
+</IfModule>
+
+# Security and Performance
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Force HTTPS (uncomment for production)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    
+    # Remove trailing slashes
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [R=301,L]
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "\.(env|log|sql|md|txt)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Optimize file serving
+<IfModule mod_mime.c>
+    # Proper MIME types
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType image/webp .webp
+    AddType image/avif .avif
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+    AddType application/manifest+json .webmanifest
+</IfModule>

@@ -10,17 +10,22 @@ from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.redis import init_redis, close_redis
 from app.core.openapi_config import setup_openapi_docs
+from app.core.cache_manager import warm_cache_on_startup
+from app.services.performance_service import start_performance_monitoring
+from app.services.metrics_service import start_background_metrics_collection
+from app.core.prometheus_middleware import PrometheusMiddleware
 
 # Import all models to register them with SQLAlchemy
 import app.models.all  # noqa
 
-# Import API routers
+# Import API routers - Full implementation for Phase 2
 from app.api.v1.router import router as v1_router
 
 # Import middleware
 from app.middleware.rate_limiting import GlobalRateLimitMiddleware, APIRateLimitMiddleware
 from app.middleware.csrf_protection import CSRFProtectionMiddleware
 from app.middleware.audit_middleware import AuditLoggingMiddleware, SecurityAuditMiddleware
+from app.core.tenant_middleware import TenantMiddleware
 
 
 @asynccontextmanager
@@ -41,7 +46,37 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
     print(f"✅ Upload folder ready: {settings.UPLOAD_FOLDER}")
     
+    # Initialize cache warming
+    if redis_connected:
+        await warm_cache_on_startup()
+        print("✅ Cache warming completed")
+    
+    # Start performance monitoring in background
+    monitoring_task = await start_performance_monitoring()
+    print("✅ Performance monitoring started")
+    
+    # Start metrics collection in background
+    metrics_task = await start_background_metrics_collection()
+    print("✅ Prometheus metrics collection started")
+    
     yield
+    
+    # Cancel background tasks
+    if 'monitoring_task' in locals():
+        monitoring_task.cancel()
+        try:
+            await monitoring_task
+        except:
+            pass  # Task was cancelled
+        print("✅ Performance monitoring stopped")
+    
+    if 'metrics_task' in locals():
+        metrics_task.cancel()
+        try:
+            await metrics_task
+        except:
+            pass  # Task was cancelled
+        print("✅ Metrics collection stopped")
     
     # Shutdown
     await close_redis()
@@ -61,6 +96,9 @@ app = FastAPI(
     docs_url=None,  # Will be configured in setup_openapi_docs
     redoc_url=None,  # Will be configured in setup_openapi_docs
 )
+
+# Prometheus metrics middleware (added early for comprehensive monitoring)
+app.add_middleware(PrometheusMiddleware)
 
 # Rate limiting middleware (added first for early protection)
 app.add_middleware(
@@ -92,6 +130,9 @@ app.add_middleware(
 
 # Security audit middleware (monitors for suspicious activity)
 app.add_middleware(SecurityAuditMiddleware)
+
+# Tenant middleware (handles multi-tenant context)
+app.add_middleware(TenantMiddleware)
 
 # Comprehensive audit logging middleware
 app.add_middleware(

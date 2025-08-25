@@ -14,7 +14,7 @@ class UserLogin(BaseModel, ValidatorMixin):
     @field_validator('email')
     @classmethod
     def validate_email_format(cls, v):
-        return cls.validate_email_format(v)
+        return ValidatorMixin.validate_email_format(v)
     
     @field_validator('password')
     @classmethod
@@ -37,12 +37,12 @@ class UserRegister(BaseModel, ValidatorMixin):
     @field_validator('email')
     @classmethod
     def validate_email_format(cls, v):
-        return cls.validate_email_format(v)
+        return ValidatorMixin.validate_email_format(v)
     
     @field_validator('password')
     @classmethod
     def validate_password_strength(cls, v):
-        return cls.validate_password_strength(v)
+        return ValidatorMixin.validate_password_strength(v)
     
     @field_validator('first_name', 'last_name')
     @classmethod
@@ -116,7 +116,7 @@ class PasswordReset(BaseModel, ValidatorMixin):
     @field_validator('email')
     @classmethod
     def validate_email_format(cls, v):
-        return cls.validate_email_format(v)
+        return ValidatorMixin.validate_email_format(v)
 
 class PasswordResetConfirm(BaseModel, ValidatorMixin):
     """Password reset confirmation schema."""
@@ -135,7 +135,7 @@ class PasswordResetConfirm(BaseModel, ValidatorMixin):
     @field_validator('new_password')
     @classmethod
     def validate_password_strength(cls, v):
-        return cls.validate_password_strength(v)
+        return ValidatorMixin.validate_password_strength(v)
     
     @model_validator(mode='after')
     def validate_passwords_match(self):
@@ -163,7 +163,7 @@ class PasswordChange(BaseModel, ValidatorMixin):
     @field_validator('new_password')
     @classmethod
     def validate_password_strength(cls, v):
-        return cls.validate_password_strength(v)
+        return ValidatorMixin.validate_password_strength(v)
     
     @model_validator(mode='after')
     def validate_passwords(self):

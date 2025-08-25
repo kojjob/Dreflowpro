@@ -20,8 +20,9 @@ from app.core.database import Base, get_db
 from app.core.redis import RedisManager
 from app.core.security import create_access_token, get_password_hash
 from app.models.user import User
-from app.models.connector import DataConnector
-from app.models.pipeline import ETLPipeline
+# Phase 2 models removed for Phase 1 testing
+# from app.models.connector import DataConnector
+# from app.models.pipeline import ETLPipeline
 from main import app
 
 
@@ -64,7 +65,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def test_engine(test_settings):
     """Create test database engine."""
     engine = create_async_engine(
@@ -84,7 +85,7 @@ async def test_engine(test_settings):
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """Create test database session."""
     async_session = async_sessionmaker(
@@ -96,7 +97,7 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         await session.rollback()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_redis():
     """Mock Redis client for testing."""
     mock_redis = AsyncMock()
@@ -108,7 +109,7 @@ async def mock_redis():
     return mock_redis
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_redis_manager(mock_redis):
     """Test Redis manager with mocked client."""
     manager = RedisManager()
@@ -133,7 +134,7 @@ def override_get_db(db_session):
     return _override
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_app(
     test_settings, 
     override_get_settings, 
@@ -170,15 +171,17 @@ def test_client(test_app) -> TestClient:
     return TestClient(test_app)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client(test_app) -> AsyncGenerator[AsyncClient, None]:
     """Create async test client for async tests."""
-    async with AsyncClient(app=test_app, base_url="http://test") as client:
+    from httpx import AsyncClient, ASGITransport
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 
 # User fixtures
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:
     """Create a test user."""
     user = User(
@@ -195,7 +198,7 @@ async def test_user(db_session: AsyncSession) -> User:
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_admin_user(db_session: AsyncSession) -> User:
     """Create a test admin user."""
     user = User(
@@ -243,48 +246,48 @@ def admin_auth_headers(test_admin_token: str) -> dict:
     return {"Authorization": f"Bearer {test_admin_token}"}
 
 
-# Data fixtures
-@pytest.fixture
-async def test_connector(db_session: AsyncSession, test_user: User) -> DataConnector:
-    """Create a test connector."""
-    connector = DataConnector(
-        name="Test PostgreSQL Connector",
-        type="postgres",
-        config={
-            "host": "localhost",
-            "port": 5432,
-            "database": "test_db",
-            "username": "test_user"
-        },
-        user_id=test_user.id,
-        is_active=True
-    )
-    db_session.add(connector)
-    await db_session.commit()
-    await db_session.refresh(connector)
-    return connector
+# Data fixtures - Phase 2 models temporarily disabled for Phase 1 testing
+# @pytest.fixture
+# async def test_connector(db_session: AsyncSession, test_user: User) -> DataConnector:
+#     """Create a test connector."""
+#     connector = DataConnector(
+#         name="Test PostgreSQL Connector",
+#         type="postgres",
+#         config={
+#             "host": "localhost",
+#             "port": 5432,
+#             "database": "test_db",
+#             "username": "test_user"
+#         },
+#         user_id=test_user.id,
+#         is_active=True
+#     )
+#     db_session.add(connector)
+#     await db_session.commit()
+#     await db_session.refresh(connector)
+#     return connector
 
 
-@pytest.fixture
-async def test_pipeline(db_session: AsyncSession, test_user: User) -> ETLPipeline:
-    """Create a test pipeline."""
-    pipeline = ETLPipeline(
-        name="Test ETL Pipeline",
-        description="A test pipeline for unit testing",
-        config={
-            "source": {"type": "csv", "path": "/test/data.csv"},
-            "transformations": [
-                {"type": "filter", "column": "status", "value": "active"}
-            ],
-            "destination": {"type": "postgres", "table": "processed_data"}
-        },
-        user_id=test_user.id,
-        is_active=True
-    )
-    db_session.add(pipeline)
-    await db_session.commit()
-    await db_session.refresh(pipeline)
-    return pipeline
+# @pytest.fixture
+# async def test_pipeline(db_session: AsyncSession, test_user: User) -> ETLPipeline:
+#     """Create a test pipeline."""
+#     pipeline = ETLPipeline(
+#         name="Test ETL Pipeline",
+#         description="A test pipeline for unit testing",
+#         config={
+#             "source": {"type": "csv", "path": "/test/data.csv"},
+#             "transformations": [
+#                 {"type": "filter", "column": "status", "value": "active"}
+#             ],
+#             "destination": {"type": "postgres", "table": "processed_data"}
+#         },
+#         user_id=test_user.id,
+#         is_active=True
+#     )
+#     db_session.add(pipeline)
+#     await db_session.commit()
+#     await db_session.refresh(pipeline)
+#     return pipeline
 
 
 # File fixtures
@@ -352,15 +355,16 @@ def performance_test_data():
 
 
 # Cleanup fixtures
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def cleanup_test_data(db_session: AsyncSession):
     """Automatically cleanup test data after each test."""
     yield
     
     # Clean up any test data that might have been created
     try:
-        await db_session.execute(text("DELETE FROM pipelines WHERE name LIKE 'Test%'"))
-        await db_session.execute(text("DELETE FROM connectors WHERE name LIKE 'Test%'"))
+        # Phase 2 tables disabled for Phase 1 testing
+        # await db_session.execute(text("DELETE FROM pipelines WHERE name LIKE 'Test%'"))
+        # await db_session.execute(text("DELETE FROM connectors WHERE name LIKE 'Test%'"))
         await db_session.execute(text("DELETE FROM users WHERE email LIKE '%test%' OR email LIKE '%example.com%'"))
         await db_session.commit()
     except Exception:

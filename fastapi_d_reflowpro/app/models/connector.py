@@ -49,6 +49,7 @@ class DataConnector(Base):
     
     # Metadata
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    tenant_id = Column(String, ForeignKey("tenants.id"), nullable=True, index=True)  # Multi-tenant support
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     last_tested = Column(DateTime(timezone=True), nullable=True)
     last_used = Column(DateTime(timezone=True), nullable=True, index=True)
@@ -57,7 +58,8 @@ class DataConnector(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="connectors")
-    created_by = relationship("User")
+    tenant = relationship("Tenant", back_populates="connectors")
+    created_by = relationship("User", back_populates="created_connectors")
     pipeline_steps = relationship("PipelineStep", back_populates="source_connector")
 
 

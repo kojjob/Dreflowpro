@@ -1,0 +1,243 @@
+groups:
+  - name: etl_platform_alerts
+    rules:
+      # System Resource Alerts
+      - alert: HighCPUUsage
+        expr: system_cpu_usage_percent > 80
+        for: 2m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 2 minutes. Current value: {{ $value }}%"
+
+      - alert: CriticalCPUUsage
+        expr: system_cpu_usage_percent > 90
+        for: 1m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage is above 90% for more than 1 minute. Current value: {{ $value }}%"
+
+      - alert: HighMemoryUsage
+        expr: system_memory_usage_percent > 85
+        for: 2m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85% for more than 2 minutes. Current value: {{ $value }}%"
+
+      - alert: CriticalMemoryUsage
+        expr: system_memory_usage_percent > 95
+        for: 1m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage is above 95% for more than 1 minute. Current value: {{ $value }}%"
+
+      - alert: HighDiskUsage
+        expr: system_disk_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage is above 80% for more than 5 minutes. Current value: {{ $value }}%"
+
+      # Application Performance Alerts
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile response time is above 2 seconds for more than 2 minutes. Current value: {{ $value }}s"
+
+      - alert: CriticalResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Critical API response time"
+          description: "95th percentile response time is above 5 seconds for more than 1 minute. Current value: {{ $value }}s"
+
+      - alert: HighErrorRate
+        expr: (rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High HTTP error rate"
+          description: "HTTP 5xx error rate is above 5% for more than 2 minutes. Current value: {{ $value }}%"
+
+      - alert: CriticalErrorRate
+        expr: (rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])) * 100 > 10
+        for: 1m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Critical HTTP error rate"
+          description: "HTTP 5xx error rate is above 10% for more than 1 minute. Current value: {{ $value }}%"
+
+      # Cache Performance Alerts
+      - alert: LowCacheHitRatio
+        expr: cache_hit_ratio{layer="overall"} < 0.6
+        for: 5m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "Low cache hit ratio"
+          description: "Overall cache hit ratio is below 60% for more than 5 minutes. Current value: {{ $value }}"
+
+      - alert: CriticalCacheHitRatio
+        expr: cache_hit_ratio{layer="overall"} < 0.3
+        for: 2m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Critical cache hit ratio"
+          description: "Overall cache hit ratio is below 30% for more than 2 minutes. Current value: {{ $value }}"
+
+      # Rate Limiting Alerts
+      - alert: HighRateLimitHits
+        expr: rate(rate_limit_hits_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High rate limit hits"
+          description: "Rate limit hits are occurring more than 10 times per second for more than 2 minutes."
+
+      - alert: ExcessiveRateLimitBlocks
+        expr: rate(rate_limit_blocks_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Excessive rate limit blocks"
+          description: "Rate limit blocks are occurring more than 5 times per second for more than 1 minute. Possible DDoS attack."
+
+      # Pipeline Alerts
+      - alert: PipelineFailures
+        expr: increase(pipeline_executions_total{status="failed"}[10m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "Multiple pipeline failures"
+          description: "More than 3 pipeline failures in the last 10 minutes for pipeline {{ $labels.pipeline_id }}"
+
+      - alert: PipelineStuck
+        expr: time() - pipeline_duration_seconds > 3600
+        for: 0m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Pipeline execution stuck"
+          description: "Pipeline {{ $labels.pipeline_id }} has been running for more than 1 hour"
+
+      # Data Quality Alerts
+      - alert: DataQualityViolations
+        expr: increase(data_quality_violations_total{severity="critical"}[15m]) > 5
+        for: 0m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Critical data quality violations"
+          description: "More than 5 critical data quality violations in the last 15 minutes for rule type {{ $labels.rule_type }}"
+
+      # Service Availability Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: etl-platform
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} service is down for more than 1 minute"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis service is down for more than 30 seconds"
+
+      # Authentication Alerts
+      - alert: HighFailedAuthAttempts
+        expr: rate(auth_attempts_total{status="failed"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: etl-platform
+        annotations:
+          summary: "High failed authentication attempts"
+          description: "Failed authentication attempts are occurring more than 5 times per second for more than 2 minutes. Possible brute force attack."
+
+  - name: infrastructure_alerts
+    rules:
+      # Node Exporter Alerts
+      - alert: NodeDown
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: node-exporter
+        annotations:
+          summary: "Node Exporter is down"
+          description: "Node Exporter has been down for more than 1 minute"
+
+      - alert: HostOutOfMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+        for: 2m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Host out of memory"
+          description: "Node memory is filling up (< 10% left). Current value: {{ $value }}%"
+
+      - alert: HostOutOfDiskSpace
+        expr: (node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 10 and ON (instance, device, mountpoint) node_filesystem_readonly == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Host out of disk space"
+          description: "Disk is almost full (< 10% left). Current value: {{ $value }}%"
+
+      - alert: HostHighCpuLoad
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
+        for: 2m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Host high CPU load"
+          description: "CPU load is > 80%. Current value: {{ $value }}%"

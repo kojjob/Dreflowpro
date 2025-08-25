@@ -44,8 +44,8 @@ class Organization(Base):
     
     # Relationships
     users = relationship("User", back_populates="organization")
-    connectors = relationship("DataConnector", back_populates="organization")
     pipelines = relationship("ETLPipeline", back_populates="organization")
+    connectors = relationship("DataConnector", back_populates="organization")
 
 
 class User(Base):
@@ -63,6 +63,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), index=True)
+    tenant_id = Column(String, ForeignKey("tenants.id"), nullable=True, index=True)  # Multi-tenant support
     provider_data = Column(JSON, nullable=True)  # Store additional provider-specific data
     last_login = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
@@ -70,9 +71,11 @@ class User(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="users")
+    tenant = relationship("Tenant", back_populates="users")
     api_keys = relationship("APIKey", back_populates="user")
-    created_pipelines = relationship("ETLPipeline", back_populates="created_by")
     social_accounts = relationship("SocialAccount", back_populates="user", cascade="all, delete-orphan")
+    created_pipelines = relationship("ETLPipeline", back_populates="created_by")
+    created_connectors = relationship("DataConnector", back_populates="created_by")
     
     @property
     def full_name(self) -> str:

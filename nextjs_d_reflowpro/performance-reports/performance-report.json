@@ -1,0 +1,263 @@
+{
+  "timestamp": "2025-08-24T13:38:04.853Z",
+  "summary": {
+    "totalBundleSize": 1968520,
+    "chunkCount": 82,
+    "warningCount": 0,
+    "recommendationCount": 4
+  },
+  "bundleAnalysis": {
+    "totalSize": 1968520,
+    "chunkCount": 82,
+    "largestChunk": 173023,
+    "chunks": [
+      {
+        "name": "framework-ff30e0d3-446b6591047c2842.js",
+        "size": 173023,
+        "path": ".next/static/chunks/framework-ff30e0d3-446b6591047c2842.js"
+      },
+      {
+        "name": "framework-36598b9c-5b28a0c2c0a077de.js",
+        "size": 167667,
+        "path": ".next/static/chunks/framework-36598b9c-5b28a0c2c0a077de.js"
+      },
+      {
+        "name": "ca377847-5885c2b7c3ce8eb0.js",
+        "size": 155744,
+        "path": ".next/static/chunks/ca377847-5885c2b7c3ce8eb0.js"
+      },
+      {
+        "name": "polyfills-42372ed130431b0a.js",
+        "size": 112594,
+        "path": ".next/static/chunks/polyfills-42372ed130431b0a.js"
+      },
+      {
+        "name": "477aeb4560e8ce49.css",
+        "size": 97447,
+        "path": ".next/static/css/477aeb4560e8ce49.css"
+      },
+      {
+        "name": "vendor-2ef5bd86-65df4f3eeb238885.js",
+        "size": 72640,
+        "path": ".next/static/chunks/vendor-2ef5bd86-65df4f3eeb238885.js"
+      },
+      {
+        "name": "4327.ea3601673ea499c2.js",
+        "size": 72403,
+        "path": ".next/static/chunks/4327.ea3601673ea499c2.js"
+      },
+      {
+        "name": "framework-2898f16f-ad685ed0c5db99ba.js",
+        "size": 68265,
+        "path": ".next/static/chunks/framework-2898f16f-ad685ed0c5db99ba.js"
+      },
+      {
+        "name": "ui-d929e15b-2e19b69324b327d0.js",
+        "size": 61917,
+        "path": ".next/static/chunks/ui-d929e15b-2e19b69324b327d0.js"
+      },
+      {
+        "name": "common-0d114c7f685b780c.js",
+        "size": 60808,
+        "path": ".next/static/chunks/common-0d114c7f685b780c.js"
+      }
+    ],
+    "heavyDependencies": [
+      "chart.js"
+    ],
+    "performanceIssues": [
+      {
+        "type": "large-component",
+        "file": "app/components/ai/AIInsightsManager.tsx",
+        "size": 10687,
+        "message": "Large component file: 10.44 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/connectors/ConnectorManager.tsx",
+        "size": 30689,
+        "message": "Large component file: 29.97 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/dashboard/DashboardStats.tsx",
+        "size": 28017,
+        "message": "Large component file: 27.36 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/dashboard/DashboardStatsOptimized.tsx",
+        "size": 10332,
+        "message": "Large component file: 10.09 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/dashboard/MainDashboard.tsx",
+        "size": 15041,
+        "message": "Large component file: 14.69 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/DataAnalysisWorkflow.tsx",
+        "size": 22416,
+        "message": "Large component file: 21.89 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/DataManipulation.tsx",
+        "size": 21842,
+        "message": "Large component file: 21.33 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/ExportSystem.tsx",
+        "size": 17471,
+        "message": "Large component file: 17.06 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/FileConnectorIntegration.tsx",
+        "size": 17314,
+        "message": "Large component file: 16.91 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/FileUploadSystem.tsx",
+        "size": 19205,
+        "message": "Large component file: 18.75 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/InsightsGeneration.tsx",
+        "size": 24173,
+        "message": "Large component file: 23.61 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/data-analysis/VisualizationDashboard.tsx",
+        "size": 22295,
+        "message": "Large component file: 21.77 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/pipelines/PipelineDetails.tsx",
+        "size": 11346,
+        "message": "Large component file: 11.08 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/pipelines/PipelineEditor.tsx",
+        "size": 11964,
+        "message": "Large component file: 11.68 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/pipelines/PipelineManager.tsx",
+        "size": 93850,
+        "message": "Large component file: 91.65 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/pipelines/PipelineManagerOptimized.tsx",
+        "size": 10438,
+        "message": "Large component file: 10.19 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/pipelines/__tests__/PipelineManager.test.tsx",
+        "size": 10888,
+        "message": "Large component file: 10.63 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/profile/BillingSubscription.tsx",
+        "size": 18620,
+        "message": "Large component file: 18.18 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/profile/HelpSupport.tsx",
+        "size": 34577,
+        "message": "Large component file: 33.77 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/profile/Preferences.tsx",
+        "size": 21097,
+        "message": "Large component file: 20.6 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/profile/ProfileSettings.tsx",
+        "size": 20980,
+        "message": "Large component file: 20.49 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/tasks/TaskMonitor.tsx",
+        "size": 22840,
+        "message": "Large component file: 22.3 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/ui/ModalVariants.tsx",
+        "size": 19803,
+        "message": "Large component file: 19.34 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/ui/NotificationsDropdown.tsx",
+        "size": 17155,
+        "message": "Large component file: 16.75 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/ui/UserProfileDropdown.tsx",
+        "size": 13305,
+        "message": "Large component file: 12.99 KB"
+      },
+      {
+        "type": "large-component",
+        "file": "app/components/visualizations/DataVisualization.tsx",
+        "size": 17507,
+        "message": "Large component file: 17.1 KB"
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "type": "dependencies",
+      "message": "Consider optimizing heavy dependencies: chart.js",
+      "impact": "high"
+    },
+    {
+      "category": "Bundle Optimization",
+      "items": [
+        "Implement dynamic imports for large components",
+        "Use React.lazy() for route-level code splitting",
+        "Optimize package imports (use specific imports instead of entire libraries)",
+        "Consider using lighter alternatives for heavy dependencies"
+      ]
+    },
+    {
+      "category": "Asset Optimization",
+      "items": [
+        "Implement next/image for automatic image optimization",
+        "Use WebP/AVIF formats for images",
+        "Implement font optimization with next/font",
+        "Enable compression (gzip/brotli) in production"
+      ]
+    },
+    {
+      "category": "Runtime Performance",
+      "items": [
+        "Use React.memo() for expensive components",
+        "Implement useMemo() and useCallback() for expensive calculations",
+        "Optimize re-renders with proper dependency arrays",
+        "Use virtual scrolling for large lists"
+      ]
+    }
+  ],
+  "warnings": [],
+  "metrics": {}
+}

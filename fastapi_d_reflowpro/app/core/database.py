@@ -4,6 +4,11 @@ from typing import AsyncGenerator
 from .config import settings
 
 
+def get_database_url() -> str:
+    """Get database URL for migrations."""
+    return settings.DATABASE_URL
+
+
 # Create async engine
 engine = create_async_engine(
     settings.DATABASE_URL,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { toast } from "sonner"
@@ -8,7 +8,7 @@ import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
 import { Button } from "@/app/components/ui/Button"
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -148,5 +148,24 @@ export default function AuthCallbackPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md w-full mx-4">
+          <div className="text-center space-y-6">
+            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Loading...</h2>
+          </div>
+        </div>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   )
 }

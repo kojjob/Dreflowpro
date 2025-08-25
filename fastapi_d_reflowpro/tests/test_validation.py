@@ -242,7 +242,7 @@ class TestSchemaValidation:
             "port": 5432,
             "database": "testdb",
             "username": "testuser",
-            "password": "mock_test_password"
+            "password": "test_password_placeholder"
         }
         
         valid_connector = ConnectorCreate(
@@ -280,7 +280,7 @@ class TestSchemaValidation:
             port=5432,
             database="testdb",
             username="testuser",
-            password="mock_test_password"
+            password="test_password_placeholder"
         )
         
         assert valid_config.host == "localhost"
@@ -330,7 +330,7 @@ class TestValidationIntegration:
                 "port": 5432,
                 "database": "testdb",
                 "username": "testuser",
-                "password": "mock_test_password"
+                "password": "test_password_placeholder"
             }
         }
         

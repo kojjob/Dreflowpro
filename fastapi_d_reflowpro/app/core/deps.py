@@ -93,6 +93,9 @@ def get_admin_user(current_user: Annotated[User, Depends(get_current_user)]) -> 
         raise AuthorizationError("Admin access required")
     return current_user
 
+# Alias for consistency with other frameworks
+require_admin_access = get_admin_user
+
 # Editor or admin access
 def get_editor_user(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     """Get current user and verify editor or admin role."""
