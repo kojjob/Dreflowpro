@@ -10,7 +10,7 @@ import sys
 import os
 
 # Add the project root to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'fastapi_d_reflowpro'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
 
 from app.services.connector_service import ConnectorService
 from app.models.connector import ConnectorType
