@@ -96,7 +96,56 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin'
           },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+          },
         ],
+      },
+      // SEO-friendly cache headers
+      {
+        source: '/images/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          },
+        ],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          },
+        ],
+      },
+    ];
+  },
+
+  // SEO-friendly redirects
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/etl-platform',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/data-integration',
+        destination: '/features',
+        permanent: true,
+      },
+      {
+        source: '/integrations/:path*',
+        destination: '/connectors/:path*',
+        permanent: true,
       },
     ];
   },

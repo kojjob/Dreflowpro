@@ -5,7 +5,6 @@
 
 import { API_CONFIG, API_ENDPOINTS } from '../config/dataConfig';
 import { tokenManager } from '../utils/tokenManager';
-import { mockApiService } from './mockApi';
 import Logger from '../utils/logger';
 
 
@@ -22,6 +21,39 @@ class ApiService {
     this.timeout = API_CONFIG.timeout;
     this.suppressExpectedErrors = process.env.NODE_ENV === 'development';
     this.checkApiAvailability();
+  }
+
+  /**
+   * Ensure error is a proper Error instance with string message
+   */
+  private ensureError(error: any, fallbackMessage: string): Error {
+    if (error instanceof Error) {
+      return error;
+    } else {
+      let errorMessage = fallbackMessage;
+
+      if (error && typeof error === 'object') {
+        if ('message' in error) {
+          errorMessage = typeof error.message === 'string'
+            ? error.message
+            : JSON.stringify(error.message);
+        } else if ('detail' in error) {
+          errorMessage = typeof error.detail === 'string'
+            ? error.detail
+            : JSON.stringify(error.detail);
+        } else if ('error' in error) {
+          errorMessage = typeof error.error === 'string'
+            ? error.error
+            : JSON.stringify(error.error);
+        } else {
+          errorMessage = JSON.stringify(error);
+        }
+      } else {
+        errorMessage = String(error) || fallbackMessage;
+      }
+
+      return new Error(errorMessage);
+    }
   }
 
   /**
@@ -169,19 +201,85 @@ class ApiService {
         }
         
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || errorData.message || `HTTP error! status: ${response.status}`;
+
+        // Extract error message more safely - prioritize human-readable messages
+        let errorMessage = `HTTP error! status: ${response.status}`;
+
+        // First, try to get a human-readable message
+        if (errorData.message && typeof errorData.message === 'string') {
+          errorMessage = errorData.message;
+        } else if (errorData.detail && typeof errorData.detail === 'string') {
+          errorMessage = errorData.detail;
+        } else if (errorData.error && typeof errorData.error === 'string') {
+          errorMessage = errorData.error;
+        } else if (errorData.detail && typeof errorData.detail === 'object' && errorData.detail.message) {
+          // Handle nested error objects in detail field
+          errorMessage = typeof errorData.detail.message === 'string'
+            ? errorData.detail.message
+            : JSON.stringify(errorData.detail.message);
+        } else if (errorData.message) {
+          // If message exists but is not a string, try to extract meaningful info
+          errorMessage = JSON.stringify(errorData.message);
+        } else if (Object.keys(errorData).length > 0) {
+          // If we have error data but no clear message, create a readable summary
+          const errorSummary = [];
+
+          if (errorData.error) {
+            const errorValue = typeof errorData.error === 'string'
+              ? errorData.error
+              : JSON.stringify(errorData.error);
+            errorSummary.push(`Error: ${errorValue}`);
+          }
+
+          if (errorData.message) {
+            const messageValue = typeof errorData.message === 'string'
+              ? errorData.message
+              : JSON.stringify(errorData.message);
+            errorSummary.push(`Message: ${messageValue}`);
+          }
+
+          if (errorData.detail) {
+            let detailValue;
+            if (typeof errorData.detail === 'string') {
+              detailValue = errorData.detail;
+            } else if (typeof errorData.detail === 'object' && errorData.detail.message) {
+              // Extract message from nested error object
+              detailValue = typeof errorData.detail.message === 'string'
+                ? errorData.detail.message
+                : JSON.stringify(errorData.detail.message);
+            } else {
+              detailValue = JSON.stringify(errorData.detail);
+            }
+            errorSummary.push(`Detail: ${detailValue}`);
+          }
+
+          if (errorSummary.length > 0) {
+            errorMessage = errorSummary.join(', ');
+          } else {
+            errorMessage = `HTTP error! status: ${response.status} - ${JSON.stringify(errorData)}`;
+          }
+        }
+
         throw new Error(errorMessage);
       }
 
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      
-      if (error.name === 'AbortError') {
+
+      if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
         throw new Error('Request timeout');
       }
-      
-      throw error;
+
+      // Ensure we always throw a proper Error with a string message
+      if (error instanceof Error) {
+        throw error;
+      } else {
+        const errorMessage = error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : String(error) || 'Unknown error occurred';
+        throw new Error(errorMessage);
+      }
     }
   }
 
@@ -354,7 +452,8 @@ class ApiService {
    * Clear authentication
    */
   clearAuth(): void {
-    authService.logout();
+    // Use tokenManager to clear tokens instead of disabled authService
+    tokenManager.clearTokens();
   }
 
   // ========================================
@@ -362,53 +461,54 @@ class ApiService {
   // ========================================
 
   async register(userData: any): Promise<any> {
-    return this.post(API_ENDPOINTS.auth.register, userData);
+    try {
+      Logger.log('📝 Attempting registration via Next.js API route');
+      // Use absolute URL for Next.js API routes to avoid baseUrl confusion
+      const response = await this.fetchWithTimeout('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
+        throw new Error(errorData.message || 'Registration failed');
+      }
+
+      const data = await response.json();
+      Logger.log('✅ Registration successful');
+      return data;
+    } catch (error) {
+      Logger.error('Registration failed:', error);
+      throw this.ensureError(error, 'Registration failed');
+    }
   }
 
   async login(credentials: any): Promise<any> {
     try {
-      const isAvailable = await this.checkApiAvailability();
-      
-      if (isAvailable) {
-        // Try real API login first
-        Logger.log('🔐 Attempting real API login');
-        const response = await this.post(API_ENDPOINTS.auth.login, credentials);
-        Logger.log('✅ Real API login successful');
-        return response;
-      } else {
-        // Fall back to mock login for development
-        Logger.log('🔐 API unavailable, using mock login for development');
-        return {
-          access_token: 'mock_access_token_' + Date.now(),
-          refresh_token: 'mock_refresh_token_' + Date.now(),
-          token_type: 'Bearer',
-          expires_in: 3600,
-          user: await mockApiService.getCurrentUser()
-        };
+      Logger.log('🔐 Attempting login via Next.js API route');
+      // Use absolute URL for Next.js API routes to avoid baseUrl confusion
+      const response = await this.fetchWithTimeout('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
+        throw new Error(errorData.message || 'Login failed');
       }
+
+      const data = await response.json();
+      Logger.log('✅ Login successful');
+      return data;
     } catch (error) {
-      Logger.error('Login failed, falling back to mock login:', error);
-      
-      // Provide better error context for development
-      const errorContext = {
-        credentials: credentials ? { 
-          hasEmail: !!credentials.email, 
-          hasPassword: !!credentials.password,
-          emailLength: credentials.email?.length || 0 
-        } : 'No credentials provided',
-        apiBaseUrl: this.baseUrl,
-        timestamp: new Date().toISOString()
-      };
-      
-      Logger.debug('Login error context:', errorContext);
-      
-      return {
-        access_token: 'mock_access_token_' + Date.now(),
-        refresh_token: 'mock_refresh_token_' + Date.now(),
-        token_type: 'Bearer',
-        expires_in: 3600,
-        user: await mockApiService.getCurrentUser()
-      };
+      Logger.error('Login failed:', error);
+      throw this.ensureError(error, 'Login failed');
     }
   }
 
@@ -422,33 +522,27 @@ class ApiService {
 
   async getCurrentUser(): Promise<any> {
     try {
-      const isAvailable = await this.checkApiAvailability();
-      
-      if (isAvailable) {
-        // Try real API first
-        Logger.log('👤 Fetching user from real API');
-        const user = await this.get(API_ENDPOINTS.auth.me);
-        Logger.log('✅ User fetched from API successfully');
-        return user;
-      } else {
-        // Fall back to mock data for development
-        Logger.log('👤 API unavailable, using mock user data for development');
-        return mockApiService.getCurrentUser();
+      Logger.log('👤 Fetching user via Next.js API route');
+      // Use absolute URL for Next.js API routes to avoid baseUrl confusion
+      const response = await this.fetchWithTimeout('/api/auth/me', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenManager.getAccessToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch user' }));
+        throw new Error(errorData.message || 'Failed to fetch user');
       }
+
+      const user = await response.json();
+      Logger.log('✅ User fetched successfully');
+      return user;
     } catch (error) {
-      Logger.error('Failed to fetch user from API, falling back to mock data:', error);
-      
-      // Provide error context for debugging
-      const errorContext = {
-        isAuthenticated: this.isAuthenticated(),
-        hasAuthHeaders: await this.getAuthHeaders().then(headers => !!headers.Authorization).catch(() => false),
-        apiBaseUrl: this.baseUrl,
-        timestamp: new Date().toISOString()
-      };
-      
-      Logger.debug('User fetch error context:', errorContext);
-      
-      return mockApiService.getCurrentUser();
+      Logger.error('Failed to fetch user:', error);
+      throw this.ensureError(error, 'Failed to fetch user');
     }
   }
 
@@ -456,13 +550,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('👤 Using mock user profile update');
-        return mockApiService.updateUserProfile(profileData);
+        throw new Error('API is not available');
       }
       return this.put(API_ENDPOINTS.auth.me, profileData);
     } catch (error) {
-      Logger.warn('Failed to update user profile via API, using mock data:', error);
-      return mockApiService.updateUserProfile(profileData);
+      Logger.error('Failed to update user profile via API:', error);
+      throw this.ensureError(error, 'Failed to update user profile');
     }
   }
 
@@ -487,13 +580,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔔 Using mock notification summary');
-        return mockApiService.getNotificationSummary();
+        throw new Error('API is not available');
       }
       return this.get('/api/v1/notifications/summary');
     } catch (error) {
-      Logger.warn('Failed to fetch notification summary from API, using mock data:', error);
-      return mockApiService.getNotificationSummary();
+      Logger.error('Failed to fetch notification summary from API:', error);
+      throw error;
     }
   }
 

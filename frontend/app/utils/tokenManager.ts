@@ -65,18 +65,31 @@ class TokenManager {
   }
 
   /**
+   * Get access token string
+   */
+  getAccessToken(): string | null {
+    const tokenData = this.getStoredToken();
+
+    if (tokenData && this.isTokenValid()) {
+      return tokenData.access_token;
+    }
+
+    return null;
+  }
+
+  /**
    * Get authorization headers for API requests
    */
   getAuthHeaders(): Record<string, string> {
     const tokenData = this.getStoredToken();
-    
+
     if (tokenData && this.isTokenValid()) {
       return {
         'Authorization': `Bearer ${tokenData.access_token}`,
         'Content-Type': 'application/json',
       };
     }
-    
+
     return {
       'Content-Type': 'application/json',
     };
@@ -101,7 +114,10 @@ class TokenManager {
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return this.getStoredToken() !== null && this.isTokenValid();
+    const tokenData = this.getStoredToken();
+    if (!tokenData) return false;
+    
+    return this.isTokenValid();
   }
 }
 

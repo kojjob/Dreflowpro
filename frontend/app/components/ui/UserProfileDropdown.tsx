@@ -99,7 +99,9 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
   };
 
   const getUserInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    const first = firstName && typeof firstName === 'string' ? firstName.charAt(0) : '';
+    const last = lastName && typeof lastName === 'string' ? lastName.charAt(0) : '';
+    return `${first}${last}`.toUpperCase() || 'U';
   };
 
   const handleLogout = async () => {
@@ -202,8 +204,8 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
 
         {/* User Info (hidden on mobile) */}
         <div className="hidden md:block text-left">
-          <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
-          <div className="text-xs text-gray-500">{user.email}</div>
+          <div className="text-sm font-medium text-gray-900">{user.fullName || 'User'}</div>
+          <div className="text-xs text-gray-500">{user.email || ''}</div>
         </div>
 
         {/* Dropdown Arrow */}
@@ -235,19 +237,23 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
                   </div>
                 )}
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{user.fullName}</h3>
-                  <p className="text-sm text-gray-600">{user.email}</p>
+                  <h3 className="font-semibold text-gray-900">{user.fullName || 'User'}</h3>
+                  <p className="text-sm text-gray-600">{user.email || ''}</p>
                   <div className="flex items-center space-x-2 mt-2">
                     {/* Role Badge */}
-                    <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role.color)}`}>
-                      {getRoleIcon(user.role.name)}
-                      <span>{user.role.name}</span>
-                    </span>
+                    {user.role && (
+                      <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role.color)}`}>
+                        {getRoleIcon(user.role.name)}
+                        <span>{user.role.name}</span>
+                      </span>
+                    )}
                     {/* Subscription Badge */}
-                    <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getSubscriptionColor(user.subscription.tier)}`}>
-                      {getSubscriptionIcon(user.subscription.name)}
-                      <span>{user.subscription.name}</span>
-                    </span>
+                    {user.subscription && (
+                      <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getSubscriptionColor(user.subscription.tier)}`}>
+                        {getSubscriptionIcon(user.subscription.name)}
+                        <span>{user.subscription.name}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -312,7 +318,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
             </div>
 
             {/* Upgrade Prompt (if applicable) */}
-            {user.subscription.canUpgrade && user.subscription.tier === 'free' && (
+            {user.subscription && user.subscription.canUpgrade && user.subscription.tier === 'free' && (
               <div className="p-4 border-t border-gray-100">
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-200">
                   <div className="flex items-center space-x-2 mb-2">

@@ -129,7 +129,9 @@ class AuthErrorBoundary extends Component<Props, State> {
 
     // For non-auth errors, let them bubble up to parent error boundary
     if (this.state.hasError && !this.state.isAuthError) {
-      throw this.state.error;
+      // Ensure we have a valid error object before re-throwing
+      const errorToThrow = this.state.error || new Error('Unknown error occurred in AuthErrorBoundary');
+      throw errorToThrow;
     }
 
     return this.props.children;

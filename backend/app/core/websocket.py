@@ -24,6 +24,9 @@ class MessageType(str, Enum):
     SYSTEM_NOTIFICATION = "system_notification"
     ANALYTICS_UPDATE = "analytics_update"
     ERROR_NOTIFICATION = "error_notification"
+    REPORT_STATUS = "report_status"
+    REPORT_PROGRESS = "report_progress"
+    REPORT_COMPLETED = "report_completed"
 
 
 class WebSocketManager:
@@ -167,6 +170,42 @@ class WebSocketManager:
             'timestamp': datetime.utcnow().isoformat()
         }
         await self.broadcast_to_organization(message, org_id)
+    
+    async def send_report_status(self, report_id: str, status: str, progress: int, user_id: str, details: Dict[str, Any] = None):
+        """Send report generation status update to a specific user."""
+        message = {
+            'type': MessageType.REPORT_STATUS,
+            'report_id': report_id,
+            'status': status,
+            'progress': progress,
+            'timestamp': datetime.utcnow().isoformat(),
+            'details': details or {}
+        }
+        await self.send_to_user(message, user_id)
+    
+    async def send_report_progress(self, report_id: str, progress: int, current_step: str, user_id: str, estimated_time: int = None):
+        """Send report generation progress update to a specific user."""
+        message = {
+            'type': MessageType.REPORT_PROGRESS,
+            'report_id': report_id,
+            'progress': progress,
+            'current_step': current_step,
+            'estimated_time': estimated_time,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        await self.send_to_user(message, user_id)
+    
+    async def send_report_completed(self, report_id: str, user_id: str, file_info: Dict[str, Any] = None, download_url: str = None):
+        """Send report completion notification to a specific user."""
+        message = {
+            'type': MessageType.REPORT_COMPLETED,
+            'report_id': report_id,
+            'file_info': file_info or {},
+            'download_url': download_url,
+            'timestamp': datetime.utcnow().isoformat(),
+            'message': 'Your report has been generated successfully!'
+        }
+        await self.send_to_user(message, user_id)
     
     def get_connection_stats(self) -> Dict[str, Any]:
         """Get WebSocket connection statistics."""

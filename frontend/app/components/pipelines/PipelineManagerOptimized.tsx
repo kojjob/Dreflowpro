@@ -95,7 +95,6 @@ const PipelineManagerOptimized: React.FC = () => {
       
       // Enhanced error context for debugging
       const errorContext = {
-        originalError: err,
         errorType: err.name || err.constructor?.name || 'Unknown',
         errorMessage: err.message || 'No error message available',
         httpStatus: err.response?.status || null,
@@ -107,8 +106,12 @@ const PipelineManagerOptimized: React.FC = () => {
         userId: user?.id || 'anonymous',
         url: typeof window !== 'undefined' ? window.location.href : 'Unknown'
       };
-      
-      Logger.error('❌ Failed to load pipelines:', errorContext);
+
+      Logger.error('❌ Failed to load pipelines:', {
+        error: errorMessage,
+        context: errorContext,
+        originalError: err instanceof Error ? err.message : String(err)
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);

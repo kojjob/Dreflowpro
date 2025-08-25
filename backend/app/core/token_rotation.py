@@ -35,6 +35,7 @@ class TokenRotationResult:
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
     expires_in: Optional[int] = None
+    family_id: Optional[str] = None
     error_code: Optional[str] = None
     message: Optional[str] = None
 
@@ -133,7 +134,8 @@ class TokenRotationManager:
                 success=True,
                 access_token=access_token,
                 refresh_token=refresh_token,
-                expires_in=3600  # 1 hour
+                expires_in=3600,  # 1 hour
+                family_id=family_id
             )
             
         except Exception as e:
@@ -318,7 +320,8 @@ class TokenRotationManager:
                 success=True,
                 access_token=new_access_token,
                 refresh_token=new_refresh_token,
-                expires_in=3600
+                expires_in=3600,
+                family_id=family_id
             )
             
         except Exception as e:

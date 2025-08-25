@@ -18,6 +18,7 @@ from app.models.pipeline import ETLPipeline, PipelineExecution, ExecutionStatus
 from app.models.connector import DataConnector
 from app.models.user import Organization
 from app.models.user import User
+from app.core.websocket import websocket_manager
 import matplotlib.pyplot as plt
 import seaborn as sns
 from reportlab.lib.pagesizes import letter, A4
@@ -40,11 +41,58 @@ warnings.filterwarnings('ignore')
 
 logger = logging.getLogger(__name__)
 
+# Helper functions for WebSocket progress updates
+def send_progress_update(report_id: str, user_id: str, progress: int, current_step: str, estimated_time: int = None):
+    """Send progress update via WebSocket."""
+    try:
+        asyncio.create_task(
+            websocket_manager.send_report_progress(
+                report_id=report_id,
+                progress=progress,
+                current_step=current_step,
+                user_id=user_id,
+                estimated_time=estimated_time
+            )
+        )
+    except Exception as e:
+        logger.error(f"Failed to send progress update: {e}")
+
+def send_status_update(report_id: str, user_id: str, status: str, progress: int, details: Dict[str, Any] = None):
+    """Send status update via WebSocket."""
+    try:
+        asyncio.create_task(
+            websocket_manager.send_report_status(
+                report_id=report_id,
+                status=status,
+                progress=progress,
+                user_id=user_id,
+                details=details
+            )
+        )
+    except Exception as e:
+        logger.error(f"Failed to send status update: {e}")
+
+def send_completion_update(report_id: str, user_id: str, file_info: Dict[str, Any] = None):
+    """Send completion notification via WebSocket."""
+    try:
+        download_url = f"/api/v1/reports/{report_id}/download" if file_info else None
+        asyncio.create_task(
+            websocket_manager.send_report_completed(
+                report_id=report_id,
+                user_id=user_id,
+                file_info=file_info,
+                download_url=download_url
+            )
+        )
+    except Exception as e:
+        logger.error(f"Failed to send completion update: {e}")
+
 @celery_app.task(bind=True, name="reports.generate_executive_report")
-def generate_executive_report(self, dataset_id: str, report_config: Dict[str, Any]):
+def generate_executive_report(self, dataset_id: str, report_config: Dict[str, Any], report_id: str = None, user_id: str = None):
     """Generate executive-level PDF report with high-level insights and visualizations."""
     
     try:
+        # Update Celery task state
         self.update_state(
             state="PROGRESS",
             meta={
@@ -53,6 +101,10 @@ def generate_executive_report(self, dataset_id: str, report_config: Dict[str, An
                 "message": "Initializing executive report generation"
             }
         )
+        
+        # Send WebSocket progress update
+        if report_id and user_id:
+            send_progress_update(report_id, user_id, 0, "Initializing executive report generation", 300)
         
         # Load and analyze data
         analysis_result = asyncio.run(_perform_executive_analysis(dataset_id, report_config))
@@ -66,6 +118,10 @@ def generate_executive_report(self, dataset_id: str, report_config: Dict[str, An
             }
         )
         
+        # Send WebSocket progress update
+        if report_id and user_id:
+            send_progress_update(report_id, user_id, 25, "Generating AI-powered executive insights", 240)
+        
         # Generate AI insights
         ai_insights = _generate_executive_ai_insights(analysis_result, report_config)
         
@@ -77,6 +133,10 @@ def generate_executive_report(self, dataset_id: str, report_config: Dict[str, An
                 "message": "Creating executive visualizations"
             }
         )
+        
+        # Send WebSocket progress update
+        if report_id and user_id:
+            send_progress_update(report_id, user_id, 50, "Creating executive visualizations", 180)
         
         # Create executive-appropriate visualizations
         visualizations = _create_executive_visualizations(analysis_result)
@@ -90,6 +150,10 @@ def generate_executive_report(self, dataset_id: str, report_config: Dict[str, An
             }
         )
         
+        # Send WebSocket progress update
+        if report_id and user_id:
+            send_progress_update(report_id, user_id, 75, "Generating PDF report", 120)
+        
         # Generate PDF report
         pdf_path = _generate_executive_pdf(
             analysis_result, 
@@ -97,6 +161,17 @@ def generate_executive_report(self, dataset_id: str, report_config: Dict[str, An
             visualizations, 
             report_config
         )
+        
+        # Send completion WebSocket update
+        if report_id and user_id:
+            file_info = {
+                "file_path": pdf_path,
+                "file_size": os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0,
+                "report_type": "executive",
+                "insights_count": len(ai_insights.get("key_insights", [])),
+                "visualization_count": len(visualizations)
+            }
+            send_completion_update(report_id, user_id, file_info)
         
         return {
             "status": "completed",
@@ -111,6 +186,13 @@ def generate_executive_report(self, dataset_id: str, report_config: Dict[str, An
     except Exception as e:
         logger.error(f"Executive report generation failed: {str(e)}")
         logger.error(traceback.format_exc())
+        
+        # Send WebSocket error update
+        if report_id and user_id:
+            send_status_update(
+                report_id, user_id, "FAILED", 0, 
+                {"error": str(e), "report_type": "executive"}
+            )
         
         self.update_state(
             state="FAILURE",

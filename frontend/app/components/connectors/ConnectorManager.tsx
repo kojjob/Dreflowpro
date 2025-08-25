@@ -158,7 +158,12 @@ const ConnectorManager: React.FC = () => {
       setConnectors(connectorData);
     } catch (err: any) {
       Logger.error('Connector fetch error:', err);
-      setError(err.message || 'Failed to load connectors');
+      const errorMessage = err instanceof Error
+        ? err.message
+        : (err && typeof err === 'object' && err.message)
+          ? String(err.message)
+          : String(err) || 'Failed to load connectors';
+      setError(errorMessage);
       setConnectors([]); // Ensure connectors is always an array
     } finally {
       setLoading(false);

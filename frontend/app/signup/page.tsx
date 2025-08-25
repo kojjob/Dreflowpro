@@ -15,7 +15,7 @@ import { SocialButtons } from "@/app/components/auth/SocialButtons"
 import { Button } from "@/app/components/ui/Button"
 import { Input } from "@/app/components/ui/Input"
 import { Alert, AlertDescription } from "@/app/components/ui/Alert"
-import { authService } from "@/app/services/auth"
+import { apiService } from "@/app/services/api"
 
 const signupSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -54,10 +54,15 @@ export default function SignupPage() {
 
     try {
       const { confirm_password, ...submitData } = data
-      await authService.register({
+      await apiService.register({
         email: submitData.email,
         password: submitData.password,
-        name: `${submitData.first_name} ${submitData.last_name}`,
+        confirm_password: submitData.password,
+        first_name: submitData.first_name,
+        last_name: submitData.last_name,
+        organization_name: submitData.organization_name,
+        terms_accepted: true,
+        marketing_consent: false
       })
 
       toast.success('Account created successfully! Welcome aboard!')

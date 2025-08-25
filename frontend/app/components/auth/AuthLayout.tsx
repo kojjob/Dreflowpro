@@ -9,14 +9,14 @@ interface AuthLayoutProps {
   showBranding?: boolean
 }
 
-export function AuthLayout({ 
-  children, 
-  title, 
-  subtitle, 
-  showBranding = true 
+export function AuthLayout({
+  children,
+  title,
+  subtitle,
+  showBranding = true
 }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:flex-1 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600" />
@@ -111,7 +111,7 @@ export function AuthLayout({
               </p>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 p-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
               {children}
             </div>
 

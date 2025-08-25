@@ -120,7 +120,9 @@ const ProfileSettings: React.FC = () => {
   };
 
   const getUserInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    const first = firstName && typeof firstName === 'string' ? firstName.charAt(0) : '';
+    const last = lastName && typeof lastName === 'string' ? lastName.charAt(0) : '';
+    return `${first}${last}`.toUpperCase() || 'U';
   };
 
   if (loading) {

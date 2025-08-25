@@ -141,12 +141,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
 
-      // If no valid session and in development mode, use mock data
-      if (env.isDevelopment) {
-        Logger.log('🔐 Development mode: using mock authentication');
-        loadMockUser();
-        return;
-      }
+      // No valid session found, redirect to login
+      Logger.log('🔐 No valid session found, redirecting to login');
+      router.push('/login');
 
       // No valid session found, user needs to log in
       Logger.log('🔐 No valid session found');
@@ -158,79 +155,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       Logger.error('🔐 Authentication initialization failed:', error);
       setError('Authentication initialization failed');
       
-      // Fallback to mock in development
-      if (env.isDevelopment) {
-        Logger.log('🔐 Falling back to mock data in development');
-        loadMockUser();
-      }
+      // On error, redirect to login
+      router.push('/login');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMockUser = () => {
-    const mockUser = {
-      id: '1',
-      email: 'admin@dreflowpro.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      fullName: 'John Doe',
-      avatar: '',
-      role: {
-        id: '1',
-        name: 'Admin',
-        permissions: ['all'],
-        color: 'red'
-      },
-      subscription: {
-        id: '1',
-        name: 'Pro',
-        tier: 'paid',
-        features: ['unlimited_pipelines', 'advanced_analytics'],
-        limits: {
-          pipelines: -1,
-          dataProcessing: 1000,
-          apiCalls: 100000,
-          users: 10
-        },
-        isActive: true,
-        canUpgrade: true
-      },
-      preferences: {
-        theme: 'light',
-        language: 'en',
-        timezone: 'UTC',
-        notifications: {
-          email: true,
-          push: true,
-          desktop: true,
-          pipelineUpdates: true,
-          systemAlerts: true,
-          weeklyReports: false
-        },
-        dashboard: {
-          defaultView: 'overview',
-          refreshInterval: 30000,
-          showWelcome: true
-        }
-      },
-      createdAt: '2024-01-01T00:00:00Z',
-      lastLoginAt: new Date().toISOString(),
-      isEmailVerified: true,
-      isActive: true
-    };
-
-    setUser(mockUser);
-    setSession({
-      user: mockUser,
-      token: 'dev_mock_token_' + Date.now(),
-      refreshToken: 'dev_mock_refresh_token_' + Date.now(),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      permissions: mockUser.role?.permissions || []
-    });
-    setError(null);
-    Logger.log('🔐 Mock user loaded for development');
-  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {

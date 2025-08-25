@@ -22,6 +22,9 @@ export interface LoginCredentials {
 export interface RegisterData extends LoginCredentials {
   name?: string;
   confirmPassword?: string;
+  first_name?: string;
+  last_name?: string;
+  organization_name?: string;
 }
 
 export interface AuthTokens {
@@ -288,42 +291,9 @@ class AuthService {
           }
         }
       } catch (apiError) {
-        Logger.warn('Authentication API not available, using mock authentication', apiError);
+        Logger.error('Authentication failed:', apiError);
+        throw apiError;
       }
-
-      // Fallback to mock authentication for development/testing
-      Logger.log('🔧 Using mock authentication for development');
-
-      // Create mock tokens
-      const mockTokens: AuthTokens = {
-        access_token: this.generateMockToken(credentials.email),
-        refresh_token: 'dev_test_refresh_token_' + Date.now(),
-        token_type: 'bearer',
-        expires_in: 3600
-      };
-
-      const mockUser: User = {
-        id: 'mock_user_' + Date.now(),
-        email: credentials.email,
-        name: credentials.email.split('@')[0],
-        is_active: true
-      };
-
-      // Store mock tokens
-      this.storeTokens(mockTokens);
-
-      // Update state
-      this.updateState({
-        isAuthenticated: true,
-        user: mockUser,
-        tokens: mockTokens,
-        isLoading: false,
-        error: null,
-      });
-
-      Logger.log('✅ Mock authentication successful for:', credentials.email);
-
-      return this.state;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       this.updateState({
@@ -334,23 +304,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Generate mock JWT token for development
-   */
-  private generateMockToken(email: string): string {
-    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-    const payload = btoa(JSON.stringify({
-      sub: email,
-      email: email,
-      name: email.split('@')[0],
-      exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-      iat: Math.floor(Date.now() / 1000),
-      is_active: true
-    }));
-    const signature = btoa('mock_signature_' + Date.now());
-
-    return `${header}.${payload}.${signature}`;
-  }
 
   /**
    * Register new user
@@ -359,7 +312,19 @@ class AuthService {
     this.updateState({ isLoading: true, error: null });
 
     try {
-      // Try real registration first
+      // Use provided first_name and last_name, or split name field as fallback
+      let firstName = data.first_name;
+      let lastName = data.last_name;
+      
+      if (!firstName || !lastName) {
+        const nameParts = data.name ? data.name.trim().split(' ') : ['', ''];
+        firstName = firstName || nameParts[0] || 'User';
+        lastName = lastName || nameParts.slice(1).join(' ') || 'Name';
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       try {
         const response = await fetch(`${this.baseUrl}/api/v1/auth/register`, {
           method: 'POST',
@@ -369,9 +334,17 @@ class AuthService {
           body: JSON.stringify({
             email: data.email,
             password: data.password,
-            name: data.name,
+            confirm_password: data.password,
+            first_name: firstName,
+            last_name: lastName,
+            organization_name: data.organization_name,
+            terms_accepted: true,
+            marketing_consent: false
           }),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (response.ok) {
           const result = await response.json();
@@ -397,42 +370,50 @@ class AuthService {
             this.updateState({ isLoading: false });
             return this.state;
           }
+        } else {
+          // Handle HTTP error responses
+          let errorMessage = 'Registration failed. Please try again.';
+          
+          try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+              if (typeof errorData.detail === 'string') {
+                errorMessage = errorData.detail;
+              } else if (errorData.detail.message) {
+                errorMessage = errorData.detail.message;
+              }
+            }
+          } catch {
+            // If we can't parse the error response, use status-based messages
+            if (response.status === 422) {
+              errorMessage = 'Please check your input data and try again.';
+            } else if (response.status === 400) {
+              errorMessage = 'Invalid registration data. Please check your information.';
+            } else if (response.status === 409) {
+              errorMessage = 'An account with this email already exists.';
+            } else if (response.status >= 500) {
+              errorMessage = 'Server error. Please try again later.';
+            }
+          }
+          
+          Logger.error('Registration failed:', { status: response.status, message: errorMessage });
+          throw new Error(errorMessage);
         }
-      } catch (apiError) {
-        Logger.warn('Registration API not available, using mock registration', apiError);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error) {
+          if (fetchError.name === 'AbortError') {
+            throw new Error('Request timed out. Please check your connection and try again.');
+          } else if (fetchError.message === 'Failed to fetch') {
+            throw new Error('Unable to connect to server. Please check your internet connection.');
+          } else {
+            throw fetchError;
+          }
+        } else {
+          throw new Error('An unexpected error occurred during registration.');
+        }
       }
-
-      // Fallback to mock registration for development/testing
-      Logger.log('🔧 Using mock registration for development');
-
-      // Create mock tokens and auto-login
-      const mockTokens: AuthTokens = {
-        access_token: this.generateMockToken(data.email),
-        refresh_token: 'dev_test_refresh_token_' + Date.now(),
-        token_type: 'bearer',
-        expires_in: 3600
-      };
-
-      const mockUser: User = {
-        id: 'mock_user_' + Date.now(),
-        email: data.email,
-        name: data.name,
-        is_active: true
-      };
-
-      // Store mock tokens and auto-login
-      this.storeTokens(mockTokens);
-      this.updateState({
-        isAuthenticated: true,
-        user: mockUser,
-        tokens: mockTokens,
-        isLoading: false,
-        error: null,
-      });
-
-      Logger.log('✅ Mock registration and auto-login successful for:', data.email);
-
-      return this.state;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       this.updateState({
@@ -725,26 +706,5 @@ class AuthService {
 }
 
 // Export singleton instance
-// Disable the old auth service to prevent API calls
-const disabledAuthService = {
-  subscribe: (listener: (state: AuthState) => void) => {
-    // Immediately call with disabled state
-    listener({
-      isAuthenticated: false,
-      user: null,
-      tokens: null,
-      isLoading: false,
-      error: null,
-    });
-    // Return empty unsubscribe function
-    return () => {};
-  },
-  login: () => Promise.reject(new Error('Old AuthService disabled - use AuthContext instead')),
-  logout: () => Promise.resolve(),
-  getValidAccessToken: () => Promise.resolve(null),
-  refreshAccessToken: () => Promise.reject(new Error('Old AuthService disabled - use AuthContext instead')),
-  getCurrentUser: () => Promise.resolve(null),
-};
-
-export const authService = disabledAuthService as any;
+export const authService = AuthService.getInstance();
 export default authService;
