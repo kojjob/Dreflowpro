@@ -19,11 +19,6 @@ class Logger {
         if (arg === null) return 'null';
         if (arg === undefined) return 'undefined';
         
-        // Handle empty objects
-        if (typeof arg === 'object' && Object.keys(arg).length === 0) {
-          return '[empty object]';
-        }
-        
         // Handle Error objects specially
         if (arg instanceof Error) {
           return {
@@ -33,18 +28,37 @@ class Logger {
           };
         }
         
-        // Handle objects with circular references or non-enumerable properties
+        // Handle objects (including arrays)
         if (typeof arg === 'object') {
+          // Handle true empty objects
+          if (Object.keys(arg).length === 0 && arg.constructor === Object) {
+            return '[truly empty object]';
+          }
+          
           try {
             // Try to stringify to check if it's serializable
-            JSON.stringify(arg);
+            const stringified = JSON.stringify(arg);
+            // If stringification results in '{}' but object has keys, it means non-enumerable properties
+            if (stringified === '{}' && Object.keys(arg).length === 0) {
+              return {
+                toString: arg.toString(),
+                constructor: arg.constructor?.name || 'Unknown',
+                prototype: Object.getPrototypeOf(arg)?.constructor?.name || 'Unknown',
+                hasOwnProperties: Object.getOwnPropertyNames(arg).length > 0,
+                ownPropertyNames: Object.getOwnPropertyNames(arg).slice(0, 5), // Limit to first 5
+                ...(arg.message && { message: arg.message }),
+                ...(arg.status && { status: arg.status }),
+                ...(arg.response && { response: 'Response object present' })
+              };
+            }
             return arg;
           } catch (e) {
-            // If it fails, extract key properties safely
+            // If it fails due to circular references, extract key properties safely
             return {
               toString: arg.toString(),
               constructor: arg.constructor?.name || 'Unknown',
               keys: Object.keys(arg),
+              serializationError: e.message,
               ...(arg.message && { message: arg.message }),
               ...(arg.status && { status: arg.status }),
               ...(arg.response && { response: 'Response object present' })

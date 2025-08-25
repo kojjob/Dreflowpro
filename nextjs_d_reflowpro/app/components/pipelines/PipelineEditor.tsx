@@ -122,16 +122,24 @@ const PipelineEditor: React.FC<PipelineEditorProps> = memo(({
       setError(errorMessage);
       
       // Prepare detailed error context for logging
+      const endpoint = pipeline?.id ? `/pipelines/${pipeline.id}` : '/pipelines';
+      const method = pipeline?.id ? 'PUT' : 'POST';
+      
       const errorContext = {
-        message: err.message || 'No error message',
-        name: err.name || 'Unknown error type',
-        status: err.response?.status || 'No status',
-        statusText: err.response?.statusText || 'No status text',
+        originalError: err,
+        errorType: err.name || err.constructor?.name || 'Unknown',
+        errorMessage: err.message || 'No error message available',
+        httpStatus: err.response?.status || null,
+        httpStatusText: err.response?.statusText || null,
+        responseData: err.response?.data ? 'Present' : 'Not present',
         hasResponse: !!err.response,
-        endpoint: `${pipeline?.id ? 'PUT' : 'POST'} ${pipeline?.id ? `/pipelines/${pipeline.id}` : '/pipelines'}`,
-        pipelineName: formData.name,
+        apiEndpoint: `${method} ${endpoint}`,
+        pipelineName: formData.name || 'Unnamed pipeline',
+        pipelineId: pipeline?.id || 'New pipeline',
         hasSteps: (formData.pipeline_config?.steps?.length || 0) > 0,
-        timestamp: new Date().toISOString()
+        stepCount: formData.pipeline_config?.steps?.length || 0,
+        timestamp: new Date().toISOString(),
+        url: typeof window !== 'undefined' ? window.location.href : 'Unknown'
       };
       
       Logger.error('❌ Failed to save pipeline:', errorMessage, errorContext);
