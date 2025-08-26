@@ -886,6 +886,229 @@ class MockApiService {
       message: 'Report deleted successfully'
     };
   }
+
+  // ========================================
+  // DATASETS MOCK METHODS
+  // ========================================
+
+  async getDatasets(): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+    
+    const mockDatasets = [
+      {
+        id: 'dataset_1',
+        name: 'Customer Analytics Dataset',
+        type: 'dataset',
+        description: 'Customer behavior and demographics data',
+        recordCount: 125000,
+        lastUpdated: '2024-01-20',
+        created_at: '2024-01-15T10:30:00Z',
+        format: 'CSV',
+        size: 15728640 // 15MB
+      },
+      {
+        id: 'dataset_2',
+        name: 'Sales Performance Dataset',
+        type: 'dataset',
+        description: 'Sales metrics and revenue data',
+        recordCount: 45000,
+        lastUpdated: '2024-01-19',
+        created_at: '2024-01-10T09:15:00Z',
+        format: 'JSON',
+        size: 8388608 // 8MB
+      },
+      {
+        id: 'dataset_3',
+        name: 'Product Inventory Dataset',
+        type: 'dataset',
+        description: 'Current inventory levels and product data',
+        recordCount: 12500,
+        lastUpdated: '2024-01-21',
+        created_at: '2024-01-18T14:22:00Z',
+        format: 'Excel',
+        size: 3145728 // 3MB
+      }
+    ];
+
+    return {
+      success: true,
+      data: {
+        datasets: mockDatasets,
+        total_count: mockDatasets.length
+      }
+    };
+  }
+
+  async getDataset(datasetId: string): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+    
+    const datasets = [
+      {
+        id: 'dataset_1',
+        name: 'Customer Analytics Dataset',
+        type: 'dataset',
+        description: 'Customer behavior and demographics data',
+        recordCount: 125000,
+        lastUpdated: '2024-01-20',
+        created_at: '2024-01-15T10:30:00Z',
+        format: 'CSV',
+        size: 15728640, // 15MB
+        columns: ['customer_id', 'name', 'email', 'age', 'location', 'signup_date', 'last_activity'],
+        schema: {
+          customer_id: 'INTEGER',
+          name: 'VARCHAR(255)',
+          email: 'VARCHAR(255)',
+          age: 'INTEGER',
+          location: 'VARCHAR(100)',
+          signup_date: 'DATE',
+          last_activity: 'DATETIME'
+        }
+      },
+      {
+        id: 'dataset_2',
+        name: 'Sales Performance Dataset',
+        type: 'dataset',
+        description: 'Sales metrics and revenue data',
+        recordCount: 45000,
+        lastUpdated: '2024-01-19',
+        created_at: '2024-01-10T09:15:00Z',
+        format: 'JSON',
+        size: 8388608, // 8MB
+        columns: ['sale_id', 'customer_id', 'product_id', 'amount', 'sale_date', 'region'],
+        schema: {
+          sale_id: 'INTEGER',
+          customer_id: 'INTEGER',
+          product_id: 'INTEGER',
+          amount: 'DECIMAL(10,2)',
+          sale_date: 'DATE',
+          region: 'VARCHAR(50)'
+        }
+      },
+      {
+        id: 'dataset_3',
+        name: 'Product Inventory Dataset',
+        type: 'dataset',
+        description: 'Current inventory levels and product data',
+        recordCount: 12500,
+        lastUpdated: '2024-01-21',
+        created_at: '2024-01-18T14:22:00Z',
+        format: 'Excel',
+        size: 3145728, // 3MB
+        columns: ['product_id', 'name', 'category', 'stock_level', 'price', 'last_restocked'],
+        schema: {
+          product_id: 'INTEGER',
+          name: 'VARCHAR(255)',
+          category: 'VARCHAR(100)',
+          stock_level: 'INTEGER',
+          price: 'DECIMAL(8,2)',
+          last_restocked: 'DATE'
+        }
+      }
+    ];
+
+    const dataset = datasets.find(d => d.id === datasetId);
+    if (!dataset) {
+      throw new Error('Dataset not found');
+    }
+
+    return {
+      success: true,
+      data: dataset
+    };
+  }
+
+  // ========================================
+  // REPORT CONFIGURATION MOCK METHODS
+  // ========================================
+
+  async getReportConfig(): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+    
+    return {
+      success: true,
+      data: {
+        report_types: [
+          {
+            value: 'EXECUTIVE',
+            label: 'Executive Summary',
+            description: 'High-level overview for leadership',
+            icon: 'BarChart3',
+            color: 'from-blue-500 to-indigo-600',
+            features: ['Key metrics', 'Trend analysis', 'Executive insights']
+          },
+          {
+            value: 'ANALYST',
+            label: 'Analyst Report',
+            description: 'Detailed analysis with insights',
+            icon: 'FileText',
+            color: 'from-green-500 to-emerald-600',
+            features: ['Deep dive analysis', 'Statistical insights', 'Data correlations']
+          },
+          {
+            value: 'PRESENTATION',
+            label: 'Presentation',
+            description: 'Slide deck for meetings',
+            icon: 'Presentation',
+            color: 'from-purple-500 to-violet-600',
+            features: ['Visual slides', 'Charts and graphs', 'Executive summary']
+          },
+          {
+            value: 'DASHBOARD_EXPORT',
+            label: 'Dashboard Export',
+            description: 'Current dashboard snapshot',
+            icon: 'Database',
+            color: 'from-orange-500 to-red-600',
+            features: ['Live data snapshot', 'Interactive elements', 'Real-time metrics']
+          }
+        ],
+        formats: [
+          { 
+            value: 'PDF', 
+            label: 'PDF Document', 
+            description: 'Portable document format',
+            supported_types: ['EXECUTIVE', 'ANALYST', 'PRESENTATION'],
+            max_size_mb: 50
+          },
+          { 
+            value: 'EXCEL', 
+            label: 'Excel Spreadsheet', 
+            description: 'Microsoft Excel format',
+            supported_types: ['ANALYST', 'DASHBOARD_EXPORT'],
+            max_size_mb: 100
+          },
+          { 
+            value: 'POWERPOINT', 
+            label: 'PowerPoint', 
+            description: 'Microsoft PowerPoint format',
+            supported_types: ['PRESENTATION'],
+            max_size_mb: 75
+          },
+          { 
+            value: 'CSV', 
+            label: 'CSV Data', 
+            description: 'Comma-separated values',
+            supported_types: ['ANALYST', 'DASHBOARD_EXPORT'],
+            max_size_mb: 20
+          },
+          { 
+            value: 'JSON', 
+            label: 'JSON Data', 
+            description: 'JavaScript Object Notation',
+            supported_types: ['DASHBOARD_EXPORT'],
+            max_size_mb: 10
+          }
+        ],
+        settings: {
+          default_report_type: 'EXECUTIVE',
+          default_format: 'PDF',
+          max_concurrent_generations: 3,
+          max_file_retention_days: 30,
+          supported_languages: ['en', 'es', 'fr'],
+          timezone: 'UTC'
+        }
+      }
+    };
+  }
 }
 
 export const mockApiService = new MockApiService();

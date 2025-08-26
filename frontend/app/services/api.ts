@@ -950,6 +950,56 @@ class ApiService {
       return await mockApiService.deleteReport(reportId);
     }
   }
+
+  // ========================================
+  // DATASETS API METHODS (for reports)
+  // ========================================
+
+  async getDatasets(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🗃️ Using mock datasets data');
+        return await mockApiService.getDatasets();
+      }
+      return this.get('/api/v1/datasets');
+    } catch (error) {
+      Logger.warn('Failed to fetch datasets from API, using mock data:', error);
+      return await mockApiService.getDatasets();
+    }
+  }
+
+  async getDataset(datasetId: string): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('🗃️ Using mock dataset data');
+        return await mockApiService.getDataset(datasetId);
+      }
+      return this.get(`/api/v1/datasets/${datasetId}`);
+    } catch (error) {
+      Logger.warn('Failed to fetch dataset from API, using mock data:', error);
+      return await mockApiService.getDataset(datasetId);
+    }
+  }
+
+  // ========================================
+  // REPORT CONFIGURATION API METHODS
+  // ========================================
+
+  async getReportConfig(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('⚙️ Using mock report config data');
+        return await mockApiService.getReportConfig();
+      }
+      return this.get('/api/v1/config/reports');
+    } catch (error) {
+      Logger.warn('Failed to fetch report config from API, using mock data:', error);
+      return await mockApiService.getReportConfig();
+    }
+  }
 }
 
 // Export singleton instance

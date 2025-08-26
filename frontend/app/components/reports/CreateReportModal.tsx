@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, FileText, BarChart3, Presentation, Database, Zap, Calendar, Settings } from 'lucide-react';
 import { CreateReportParams } from '../../services/reports';
+import { apiService } from '../../services/api';
 
 interface CreateReportModalProps {
   isOpen: boolean;
@@ -36,34 +37,13 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [step, setStep] = useState(1);
-  const [dataSources] = useState<DataSource[]>([
-    {
-      id: 'dataset_1',
-      name: 'Customer Analytics Dataset',
-      type: 'dataset',
-      description: 'Customer behavior and demographics data',
-      recordCount: 125000,
-      lastUpdated: '2024-01-20'
-    },
-    {
-      id: 'dataset_2',
-      name: 'Sales Performance Dataset',
-      type: 'dataset',
-      description: 'Sales metrics and revenue data',
-      recordCount: 45000,
-      lastUpdated: '2024-01-19'
-    },
-    {
-      id: 'pipeline_1',
-      name: 'Monthly Revenue Pipeline',
-      type: 'pipeline',
-      description: 'Automated monthly revenue analysis',
-      recordCount: 12000,
-      lastUpdated: '2024-01-21'
-    }
-  ]);
+  const [dataSources, setDataSources] = useState<DataSource[]>([]);
+  const [loadingDataSources, setLoadingDataSources] = useState(false);
+  const [reportConfig, setReportConfig] = useState<any>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
 
-  const reportTypes = [
+  // Fallback data in case API fails
+  const fallbackReportTypes = [
     {
       value: 'EXECUTIVE',
       label: 'Executive Summary',
@@ -94,12 +74,126 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
     }
   ];
 
-  const formats = [
+  const fallbackFormats = [
     { value: 'PDF', label: 'PDF Document', description: 'Portable document format' },
     { value: 'EXCEL', label: 'Excel Spreadsheet', description: 'Microsoft Excel format' },
     { value: 'POWERPOINT', label: 'PowerPoint', description: 'Microsoft PowerPoint format' },
     { value: 'CSV', label: 'CSV Data', description: 'Comma-separated values' }
   ];
+
+  // Get icon component by name
+  const getIconComponent = (iconName: string) => {
+    const iconMap: Record<string, any> = {
+      'BarChart3': BarChart3,
+      'FileText': FileText,
+      'Presentation': Presentation,
+      'Database': Database
+    };
+    return iconMap[iconName] || FileText;
+  };
+
+  // Get dynamic report types and formats from config or use fallbacks
+  const reportTypes = reportConfig?.data?.report_types?.map((type: any) => ({
+    value: type.value,
+    label: type.label,
+    description: type.description,
+    icon: getIconComponent(type.icon),
+    color: type.color || 'from-gray-500 to-gray-600',
+    features: type.features || []
+  })) || fallbackReportTypes;
+
+  const formats = reportConfig?.data?.formats || fallbackFormats;
+
+  const loadReportConfig = async () => {
+    setLoadingConfig(true);
+    try {
+      const configResponse = await apiService.getReportConfig();
+      if (configResponse.success) {
+        setReportConfig(configResponse);
+        
+        // Set default report type and format from configuration
+        if (configResponse.data.settings) {
+          setFormData(prev => ({
+            ...prev,
+            report_type: configResponse.data.settings.default_report_type || 'EXECUTIVE',
+            format: configResponse.data.settings.default_format || 'PDF'
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load report configuration:', error);
+      // Will use fallback values defined above
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const loadDataSources = async () => {
+    setLoadingDataSources(true);
+    try {
+      // Fetch datasets and pipelines in parallel
+      const [datasetsResponse, pipelinesResponse] = await Promise.all([
+        apiService.getDatasets(),
+        apiService.getPipelines()
+      ]);
+
+      const dataSources: DataSource[] = [];
+
+      // Add datasets
+      if (datasetsResponse.success && datasetsResponse.data.datasets) {
+        datasetsResponse.data.datasets.forEach((dataset: any) => {
+          dataSources.push({
+            id: dataset.id,
+            name: dataset.name,
+            type: 'dataset',
+            description: dataset.description || '',
+            recordCount: dataset.recordCount || dataset.size || 0,
+            lastUpdated: dataset.lastUpdated || new Date(dataset.updated_at || dataset.created_at).toISOString().split('T')[0]
+          });
+        });
+      }
+
+      // Add pipelines
+      if (pipelinesResponse.success && pipelinesResponse.data) {
+        const pipelines = Array.isArray(pipelinesResponse.data) ? pipelinesResponse.data : pipelinesResponse.data.pipelines || [];
+        pipelines.forEach((pipeline: any) => {
+          dataSources.push({
+            id: pipeline.id,
+            name: pipeline.name,
+            type: 'pipeline',
+            description: pipeline.description || '',
+            recordCount: pipeline.last_execution?.records_processed || 0,
+            lastUpdated: new Date(pipeline.updated_at || pipeline.created_at).toISOString().split('T')[0]
+          });
+        });
+      }
+
+      setDataSources(dataSources);
+    } catch (error) {
+      console.error('Failed to load data sources:', error);
+      // Set fallback data sources on error
+      setDataSources([
+        {
+          id: 'dataset_1',
+          name: 'Customer Analytics Dataset',
+          type: 'dataset',
+          description: 'Customer behavior and demographics data',
+          recordCount: 125000,
+          lastUpdated: '2024-01-20'
+        },
+        {
+          id: 'dataset_2', 
+          name: 'Sales Performance Dataset',
+          type: 'dataset',
+          description: 'Sales metrics and revenue data',
+          recordCount: 45000,
+          lastUpdated: '2024-01-19'
+        }
+      ]);
+    } finally {
+      setLoadingDataSources(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -113,6 +207,12 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
       });
       setErrors({});
       setStep(1);
+      
+      // Load report configuration and data sources in parallel
+      Promise.all([
+        loadReportConfig(),
+        loadDataSources()
+      ]);
     }
   }, [isOpen]);
 
@@ -266,8 +366,23 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Report Type *
                   </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {reportTypes.map((type) => {
+                  {loadingConfig ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[...Array(4)].map((_, index) => (
+                        <div key={index} className="p-4 border-2 border-gray-200 rounded-lg animate-pulse">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+                            <div className="flex-1">
+                              <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                              <div className="h-3 bg-gray-200 rounded"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {reportTypes.map((type) => {
                       const IconComponent = type.icon;
                       return (
                         <button
@@ -292,7 +407,8 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
                         </button>
                       );
                     })}
-                  </div>
+                    </div>
+                  )}
                   {errors.report_type && <p className="text-red-500 text-sm mt-1">{errors.report_type}</p>}
                 </div>
 
@@ -301,19 +417,25 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Output Format *
                   </label>
-                  <select
-                    value={formData.format}
-                    onChange={(e) => setFormData(prev => ({ ...prev, format: e.target.value as any }))}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.format ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    {formats.map((format) => (
-                      <option key={format.value} value={format.value}>
-                        {format.label} - {format.description}
-                      </option>
-                    ))}
-                  </select>
+                  {loadingConfig ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg animate-pulse bg-gray-100">
+                      <div className="h-4 bg-gray-200 rounded"></div>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.format}
+                      onChange={(e) => setFormData(prev => ({ ...prev, format: e.target.value as any }))}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.format ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      {formats.map((format) => (
+                        <option key={format.value} value={format.value}>
+                          {format.label} - {format.description}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {errors.format && <p className="text-red-500 text-sm mt-1">{errors.format}</p>}
                 </div>
 
@@ -341,8 +463,22 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
                     Choose the dataset or pipeline to use for generating your report.
                   </p>
                   
-                  <div className="space-y-3">
-                    {dataSources.map((source) => (
+                  {loadingDataSources ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                        <p className="text-gray-500">Loading data sources...</p>
+                      </div>
+                    </div>
+                  ) : dataSources.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Database className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-500 mb-2">No data sources available</p>
+                      <p className="text-sm text-gray-400">Create datasets or pipelines to generate reports</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {dataSources.map((source) => (
                       <button
                         key={source.id}
                         type="button"
@@ -388,8 +524,9 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
                           </span>
                         </div>
                       </button>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                   {errors.data_source && <p className="text-red-500 text-sm mt-2">{errors.data_source}</p>}
                 </div>
               </div>

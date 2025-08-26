@@ -1,5 +1,6 @@
 import { apiService } from './api';
 import { API_ENDPOINTS } from '../config/dataConfig';
+import { tokenManager } from '../utils/tokenManager';
 
 export interface Report {
   id: string;
@@ -133,11 +134,19 @@ export const reportsApi = {
 
   // Download report file
   async downloadReport(reportId: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    
+    // Use tokenManager for authentication
+    try {
+      const authHeaders = tokenManager.getAuthHeaders();
+      Object.assign(headers, authHeaders);
+    } catch (error) {
+      console.warn('Failed to get auth headers for report download:', error);
+    }
+
     const response = await fetch(API_ENDPOINTS.reports.download(reportId), {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      }
+      headers
     });
 
     if (!response.ok) {
