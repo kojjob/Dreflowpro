@@ -47,13 +47,14 @@ class TokenManager {
 
   /**
    * Check if current token is valid and not expired
+   * @param tokenData Optional token data to validate. If not provided, gets from storage.
    */
-  isTokenValid(): boolean {
-    const tokenData = this.getStoredToken();
-    if (!tokenData) return false;
+  isTokenValid(tokenData?: TokenData | null): boolean {
+    const token = tokenData || this.getStoredToken();
+    if (!token) return false;
 
     try {
-      const expiresAt = new Date(tokenData.expiresAt);
+      const expiresAt = new Date(token.expiresAt);
       const now = new Date();
       // Add 5 minute buffer for token refresh
       const bufferTime = 5 * 60 * 1000; 
@@ -70,7 +71,7 @@ class TokenManager {
   getAccessToken(): string | null {
     const tokenData = this.getStoredToken();
 
-    if (tokenData && this.isTokenValid()) {
+    if (tokenData && this.isTokenValid(tokenData)) {
       return tokenData.access_token;
     }
 
@@ -83,7 +84,7 @@ class TokenManager {
   getAuthHeaders(): Record<string, string> {
     const tokenData = this.getStoredToken();
 
-    if (tokenData && this.isTokenValid()) {
+    if (tokenData && this.isTokenValid(tokenData)) {
       return {
         'Authorization': `Bearer ${tokenData.access_token}`,
         'Content-Type': 'application/json',
@@ -117,7 +118,7 @@ class TokenManager {
     const tokenData = this.getStoredToken();
     if (!tokenData) return false;
     
-    return this.isTokenValid();
+    return this.isTokenValid(tokenData);
   }
 }
 

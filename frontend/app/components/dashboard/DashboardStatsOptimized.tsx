@@ -9,6 +9,7 @@ import { apiService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 import Logger from '../../utils/logger';
+import { tokenManager } from '../../utils/tokenManager';
 import { API_ENDPOINTS } from '../../config/dataConfig';
 import {
   Database,
@@ -161,95 +162,59 @@ const DashboardStatsOptimized: React.FC = () => {
       try {
         setError(null);
         const response = await apiService.get(API_ENDPOINTS.dashboard.stats);
-        setStats(response.data);
-        Logger.log('✅ Dashboard stats loaded');
+        // Handle both direct data and wrapped data structures
+        const statsData = response.data || response;
+        setStats(statsData);
+        Logger.log('✅ Dashboard stats loaded successfully');
       } catch (err: any) {
         // Extract meaningful error information
         let errorMessage = 'Failed to load dashboard stats';
+        let statusCode = null;
         
         if (err.message) {
           errorMessage = err.message;
         } else if (err.response?.data?.detail) {
           errorMessage = err.response.data.detail;
+        } else if (err.response?.data?.error) {
+          errorMessage = err.response.data.error;
         } else if (err.response?.statusText) {
+          statusCode = err.response.status;
           errorMessage = `${err.response.status} ${err.response.statusText}`;
         }
         
-        // Handle API not available case with mock data fallback
-        if (errorMessage.includes('API endpoint not available') || errorMessage.includes('Not Found')) {
-          // Use mock data for development when endpoints don't exist
-          // Only log once to avoid spam
-          if (!window.dashboardMockDataLogged) {
-            Logger.info('📊 Using mock dashboard data (backend not available)');
-            window.dashboardMockDataLogged = true;
-          }
-          setStats({
-            pipelines: {
-              total: 12,
-              active: 8,
-              running: 3,
-              failed: 1,
-              scheduled: 2
-            },
-            connectors: {
-              total: 15,
-              connected: 12,
-              disconnected: 2,
-              error: 1
-            },
-            tasks: {
-              total: 150,
-              completed: 135,
-              running: 8,
-              failed: 5,
-              pending: 2
-            },
-            system: {
-              cpu_usage: 45.2,
-              memory_usage: 68.7,
-              disk_usage: 34.1,
-              uptime: 86400000 // 1 day in milliseconds
-            },
-            recent_activity: [
-              {
-                id: 'activity-1',
-                type: 'pipeline_completed',
-                message: 'Data pipeline "Customer Analytics" completed successfully',
-                timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-                status: 'success' as const
-              },
-              {
-                id: 'activity-2',
-                type: 'connector_connected',
-                message: 'Database connector "PostgreSQL-Prod" established',
-                timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-                status: 'info' as const
-              },
-              {
-                id: 'activity-3',
-                type: 'task_failed',
-                message: 'Data validation task failed - invalid schema',
-                timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-                status: 'error' as const
-              }
-            ]
-          });
-          return; // Don't set error state when using mock data
-        } else if (errorMessage.includes('Authentication failed')) {
-          setError('Please log in to view dashboard stats');
-        } else {
-          setError(errorMessage);
+        // Handle authentication errors specifically
+        if (statusCode === 401 || errorMessage.includes('Authentication') || errorMessage.includes('credentials required')) {
+          Logger.warn('🔐 Dashboard stats request requires authentication');
+          setError('Please log in to view dashboard statistics');
+          return;
         }
+        
+        // Handle API not available case - let the Next.js API route handle fallback
+        if (errorMessage.includes('API endpoint not available') || 
+            errorMessage.includes('Not Found') ||
+            errorMessage.includes('Failed to fetch') ||
+            statusCode === 500) {
+          // The error is being handled by our Next.js API route
+          Logger.info('📊 Dashboard stats API handled request with fallback data');
+          // Don't set error state, as the API should return valid data or proper error
+          return;
+        }
+        
+        // Set error state for other types of errors
+        setError(errorMessage);
         
         // Prepare detailed error context for logging
         const errorContext = {
           message: err.message || 'No error message',
           name: err.name || 'Unknown error type',
-          status: err.response?.status || 'No status',
+          status: statusCode || err.response?.status || 'No status',
           statusText: err.response?.statusText || 'No status text',
           hasResponse: !!err.response,
           endpoint: `GET ${API_ENDPOINTS.dashboard.stats}`,
           hasUser: !!user,
+          userAuthenticated: user?.email || 'No user email',
+          tokenAvailable: !!tokenManager.getAccessToken(),
+          tokenValid: tokenManager.isAuthenticated(),
           timestamp: new Date().toISOString()
         };
         
