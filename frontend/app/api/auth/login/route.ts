@@ -21,11 +21,30 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login API error:', error)
+
+    // Provide more specific error messages based on the error type
+    let errorMessage = 'Internal server error'
+    let errorDetail = 'An unexpected error occurred during login'
+
+    if (error?.cause?.code === 'ECONNREFUSED') {
+      errorMessage = 'Backend service unavailable'
+      errorDetail = 'Unable to connect to the authentication service. Please ensure the backend server is running or try again later.'
+    } else if (error?.name === 'TypeError' && error?.message?.includes('fetch failed')) {
+      errorMessage = 'Network connection failed'
+      errorDetail = 'Failed to connect to the authentication service. Please check your network connection and try again.'
+    } else if (error?.message) {
+      errorDetail = error.message
+    }
+
     return NextResponse.json(
-      { detail: 'Internal server error' },
-      { status: 500 }
+      {
+        detail: errorMessage,
+        message: errorDetail,
+        error: 'BACKEND_CONNECTION_ERROR'
+      },
+      { status: 503 } // Service Unavailable instead of 500
     )
   }
 }

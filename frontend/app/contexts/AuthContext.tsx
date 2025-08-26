@@ -195,8 +195,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return false;
     } catch (error: any) {
       Logger.error('Login failed:', error);
-      setError(error.message || 'Login failed');
-      toast.error('Login failed. Please check your credentials.');
+
+      // Provide more specific error messages based on error type
+      let userMessage = 'Login failed. Please check your credentials.';
+      let errorMessage = error.message || 'Login failed';
+
+      if (error.message?.includes('Backend service unavailable') ||
+          error.message?.includes('Network connection failed') ||
+          error.message?.includes('BACKEND_CONNECTION_ERROR')) {
+        userMessage = 'Unable to connect to the server. Please try again later.';
+        errorMessage = 'Backend service unavailable';
+      } else if (error.message?.includes('Authentication failed')) {
+        userMessage = 'Invalid email or password. Please try again.';
+      } else if (error.message?.includes('timeout')) {
+        userMessage = 'Request timed out. Please check your connection and try again.';
+      }
+
+      setError(errorMessage);
+      toast.error(userMessage);
       return false;
     } finally {
       setLoading(false);
