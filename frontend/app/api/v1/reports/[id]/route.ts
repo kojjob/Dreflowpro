@@ -4,17 +4,19 @@ import Logger from '../../../../utils/logger';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    Logger.log(`📊 Get report API route called for ID: ${params.id}`);
+    const { id } = await params;
+    Logger.log(`📊 Get report API route called for ID: ${id}`);
     
     // Use the main API service which handles fallback to mock data
-    const result = await apiService.get(`/api/v1/reports/${params.id}`);
+    const result = await apiService.get(`/api/v1/reports/${id}`);
     
     return NextResponse.json(result);
   } catch (error) {
-    Logger.error(`Failed to fetch report ${params.id}:`, error);
+    const { id } = await params;
+    Logger.error(`Failed to fetch report ${id}:`, error);
     
     // Return error response
     return NextResponse.json(
@@ -29,17 +31,19 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    Logger.log(`📊 Delete report API route called for ID: ${params.id}`);
+    const { id } = await params;
+    Logger.log(`📊 Delete report API route called for ID: ${id}`);
     
     // Use the main API service which handles fallback to mock data
-    const result = await apiService.deleteReport(params.id);
+    const result = await apiService.deleteReport(id);
     
     return NextResponse.json(result);
   } catch (error) {
-    Logger.error(`Failed to delete report ${params.id}:`, error);
+    const { id } = await params;
+    Logger.error(`Failed to delete report ${id}:`, error);
     
     // Return error response
     return NextResponse.json(
