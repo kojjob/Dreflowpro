@@ -22,7 +22,7 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 @router.get("/", response_model=Dict[str, Any])
 async def list_reports(
     report_type: Optional[ReportType] = Query(None, description="Filter by report type"),
-    status: Optional[ReportStatus] = Query(None, description="Filter by report status"),
+    status: Optional[str] = Query(None, description="Filter by report status"),
     limit: int = Query(50, ge=1, le=100, description="Number of reports to return"),
     offset: int = Query(0, ge=0, description="Number of reports to skip"),
     session: AsyncSession = Depends(get_db),
@@ -31,12 +31,22 @@ async def list_reports(
     """List reports for the current user."""
     
     try:
+        # Parse status string to enum, handle invalid values gracefully
+        parsed_status = None
+        if status and status.lower() not in ("undefined", "null", "none", ""):
+            try:
+                parsed_status = ReportStatus(status.lower())
+            except ValueError:
+                # Invalid status value, ignore it (don't filter by status)
+                logger.warning(f"Invalid status parameter received: {status}, ignoring filter")
+                parsed_status = None
+        
         result = await reports_service.list_reports(
             session=session,
             user_id=str(current_user.id),
             organization_id=str(current_user.organization_id) if current_user.organization_id else None,
             report_type=report_type,
-            status=status,
+            status=parsed_status,
             limit=limit,
             offset=offset
         )

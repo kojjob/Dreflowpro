@@ -17,6 +17,7 @@ from .tenants.router import router as tenants_router
 from .admin.router import router as admin_router
 from .export.router import router as export_router
 from .reports.router import router as reports_router
+from .dashboard.router import router as dashboard_router
 
 # Create the main v1 router
 router = APIRouter(prefix="/api/v1")
@@ -40,3 +41,4 @@ router.include_router(tenants_router, prefix="/tenants", tags=["tenants"])
 router.include_router(admin_router, prefix="/admin", tags=["admin"])
 router.include_router(export_router, tags=["data_export"])
 router.include_router(reports_router, tags=["reports"])
+router.include_router(dashboard_router, tags=["dashboard"])
