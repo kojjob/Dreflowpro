@@ -126,22 +126,28 @@ const DataAnalysisReportModal: React.FC<DataAnalysisReportModalProps> = ({
 
   // Enhanced KPI metrics generation with storytelling elements
   const kpiMetrics = useMemo((): KPIMetric[] => {
-    const qualityScore = statistics.find(s => s.type === 'quality')?.score || 85;
-    const completenessScore = statistics.find(s => s.type === 'completeness')?.percentage || 92;
-    const processingTime = statistics.find(s => s.type === 'processing')?.time || 2.3;
+    // Defensive programming: ensure all arrays exist
+    const safeData = data || [];
+    const safeInsights = insights || [];
+    const safeStatistics = statistics || [];
+    const safeCharts = charts || [];
+
+    const qualityScore = safeStatistics.find(s => s.type === 'quality')?.score || 85;
+    const completenessScore = safeStatistics.find(s => s.type === 'completeness')?.percentage || 92;
+    const processingTime = safeStatistics.find(s => s.type === 'processing')?.time || 2.3;
 
     const metrics: KPIMetric[] = [
       {
         id: 'total-records',
         title: 'Total Records Analyzed',
-        value: data.length.toLocaleString(),
+        value: safeData.length.toLocaleString(),
         icon: DataAnalysisIcons.dataTypes.mixed,
         color: brandColors[500],
         description: 'Complete dataset processed and analyzed',
         category: 'performance',
         unit: 'records',
-        trend: [data.length * 0.8, data.length * 0.9, data.length],
-        target: data.length * 1.2
+        trend: [safeData.length * 0.8, safeData.length * 0.9, safeData.length],
+        target: safeData.length * 1.2
       },
       {
         id: 'data-quality',
@@ -160,26 +166,26 @@ const DataAnalysisReportModal: React.FC<DataAnalysisReportModalProps> = ({
       {
         id: 'insights-generated',
         title: 'AI Insights Generated',
-        value: insights.length,
-        change: insights.length > 5 ? 2 : 0,
-        changeType: insights.length > 5 ? 'increase' : 'neutral',
-        icon: DataAnalysisIcons.analysis.aiInsights,
+        value: safeInsights.length,
+        change: safeInsights.length > 5 ? 2 : 0,
+        changeType: safeInsights.length > 5 ? 'increase' : 'neutral',
+        icon: DataAnalysisIcons.insights.recommendation,
         color: '#8b5cf6',
         description: 'Actionable insights discovered through AI analysis',
         category: 'engagement',
         unit: 'insights',
-        trend: [Math.max(0, insights.length - 2), Math.max(0, insights.length - 1), insights.length]
+        trend: [Math.max(0, safeInsights.length - 2), Math.max(0, safeInsights.length - 1), safeInsights.length]
       },
       {
         id: 'visualizations',
         title: 'Interactive Charts',
-        value: charts.length,
+        value: safeCharts.length,
         icon: DataAnalysisIcons.chartTypes.bar,
         color: '#3b82f6',
         description: 'Dynamic visualizations for data exploration',
         category: 'engagement',
         unit: 'charts',
-        trend: [Math.max(0, charts.length - 1), charts.length, charts.length + 1]
+        trend: [Math.max(0, safeCharts.length - 1), safeCharts.length, safeCharts.length + 1]
       },
       {
         id: 'completeness',
@@ -201,7 +207,7 @@ const DataAnalysisReportModal: React.FC<DataAnalysisReportModalProps> = ({
         value: `${processingTime}s`,
         change: -0.5,
         changeType: 'increase',
-        icon: DataAnalysisIcons.analysis.performance,
+        icon: DataAnalysisIcons.metrics.engagement,
         color: '#06b6d4',
         description: 'Average time to process and analyze data',
         category: 'performance',
@@ -215,7 +221,8 @@ const DataAnalysisReportModal: React.FC<DataAnalysisReportModalProps> = ({
 
   // Enhanced chart processing with storytelling and animations
   const processedCharts = useMemo((): ChartConfig[] => {
-    const chartConfigs = charts.map((chart, index) => {
+    const safeCharts = charts || [];
+    const chartConfigs = safeCharts.map((chart, index) => {
       if (!chart.data) return chart;
 
       // Apply DreflowPro color palette with gradients
@@ -301,7 +308,8 @@ const DataAnalysisReportModal: React.FC<DataAnalysisReportModalProps> = ({
   }, [kpiMetrics]);
 
   const getInsightsByPriority = useCallback(() => {
-    return insights.sort((a, b) => {
+    const safeInsights = insights || [];
+    return safeInsights.sort((a, b) => {
       const priorityOrder = { high: 3, medium: 2, low: 1 };
       return (priorityOrder[b.priority as keyof typeof priorityOrder] || 1) -
              (priorityOrder[a.priority as keyof typeof priorityOrder] || 1);

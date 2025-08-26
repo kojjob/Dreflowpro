@@ -6,6 +6,7 @@
 import { API_CONFIG, API_ENDPOINTS } from '../config/dataConfig';
 import { tokenManager } from '../utils/tokenManager';
 import Logger from '../utils/logger';
+import { mockApiService } from './mockApi';
 
 
 class ApiService {
@@ -834,6 +835,119 @@ class ApiService {
     } catch (error) {
       Logger.warn('Failed to fetch health status from API, using mock data:', error);
       return await mockApiService.getHealthStatus();
+    }
+  }
+
+  // ========================================
+  // REPORTS API METHODS
+  // ========================================
+
+  async getReports(params: any = {}): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('📊 Using mock reports data');
+        return await mockApiService.getReports(params);
+      }
+
+      // Clean up parameters to avoid sending undefined values
+      const cleanParams: Record<string, string> = {};
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          cleanParams[key] = String(value);
+        }
+      });
+
+      const result = await this.get(API_ENDPOINTS.reports.list, cleanParams);
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Check if it's an authentication error, validation error, or API not available
+      if (errorMessage.includes('Authentication failed') ||
+          errorMessage.includes('401') ||
+          errorMessage.includes('API endpoint not available') ||
+          errorMessage.includes('API is not available') ||
+          errorMessage.includes('Input should be') ||
+          errorMessage.includes('validation error')) {
+        Logger.log('📊 Authentication failed, validation error, or API unavailable, using mock reports data');
+        return await mockApiService.getReports(params);
+      }
+
+      Logger.warn('Failed to fetch reports from API, using mock data:', error);
+      return await mockApiService.getReports(params);
+    }
+  }
+
+  async getReportStatistics(days: number = 30): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('📊 Using mock report statistics data');
+        return await mockApiService.getReportStatistics(days);
+      }
+
+      const result = await this.get(API_ENDPOINTS.reports.statistics, { days: days.toString() });
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Check if it's an authentication error, validation error, or API not available
+      if (errorMessage.includes('Authentication failed') ||
+          errorMessage.includes('401') ||
+          errorMessage.includes('API endpoint not available') ||
+          errorMessage.includes('API is not available') ||
+          errorMessage.includes('Input should be') ||
+          errorMessage.includes('validation error') ||
+          errorMessage.includes('Detail:')) {
+        Logger.log('📊 Authentication failed, validation error, or API unavailable, using mock report statistics data');
+        return await mockApiService.getReportStatistics(days);
+      }
+
+      Logger.warn('Failed to fetch report statistics from API, using mock data:', error);
+      return await mockApiService.getReportStatistics(days);
+    }
+  }
+
+  async createReport(reportData: any): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('📊 Using mock report creation');
+        return await mockApiService.createReport(reportData);
+      }
+      return this.post(API_ENDPOINTS.reports.create, reportData);
+    } catch (error) {
+      Logger.warn('Failed to create report via API, using mock creation:', error);
+      return await mockApiService.createReport(reportData);
+    }
+  }
+
+  async generateReport(reportId: string): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('📊 Using mock report generation');
+        return await mockApiService.generateReport(reportId);
+      }
+      return this.post(API_ENDPOINTS.reports.generate(reportId));
+    } catch (error) {
+      Logger.warn('Failed to generate report via API, using mock generation:', error);
+      return await mockApiService.generateReport(reportId);
+    }
+  }
+
+  async deleteReport(reportId: string): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        Logger.log('📊 Using mock report deletion');
+        return await mockApiService.deleteReport(reportId);
+      }
+      return this.delete(API_ENDPOINTS.reports.delete(reportId));
+    } catch (error) {
+      Logger.warn('Failed to delete report via API, using mock deletion:', error);
+      return await mockApiService.deleteReport(reportId);
     }
   }
 }

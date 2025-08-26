@@ -9,6 +9,7 @@ import { apiService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 import Logger from '../../utils/logger';
+import { API_ENDPOINTS } from '../../config/dataConfig';
 import {
   Database,
   Zap,
@@ -159,7 +160,7 @@ const DashboardStatsOptimized: React.FC = () => {
 
       try {
         setError(null);
-        const response = await apiService.get('/dashboard/stats');
+        const response = await apiService.get(API_ENDPOINTS.dashboard.stats);
         setStats(response.data);
         Logger.log('✅ Dashboard stats loaded');
       } catch (err: any) {
@@ -247,7 +248,7 @@ const DashboardStatsOptimized: React.FC = () => {
           status: err.response?.status || 'No status',
           statusText: err.response?.statusText || 'No status text',
           hasResponse: !!err.response,
-          endpoint: 'GET /dashboard/stats',
+          endpoint: `GET ${API_ENDPOINTS.dashboard.stats}`,
           hasUser: !!user,
           timestamp: new Date().toISOString()
         };

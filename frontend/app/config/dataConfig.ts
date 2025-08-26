@@ -339,6 +339,25 @@ export const API_ENDPOINTS = {
     transformations: '/api/v1/config/transformations',
     userPreferences: '/api/v1/config/user-preferences',
   },
+
+  // Reports endpoints
+  reports: {
+    list: '/api/v1/reports',
+    create: '/api/v1/reports',
+    get: (reportId: string) => `/api/v1/reports/${reportId}`,
+    delete: (reportId: string) => `/api/v1/reports/${reportId}`,
+    generate: (reportId: string) => `/api/v1/reports/${reportId}/generate`,
+    download: (reportId: string) => `/api/v1/reports/${reportId}/download`,
+    statistics: '/api/v1/reports/statistics',
+    batch: '/api/v1/reports/batch',
+    cleanup: '/api/v1/reports/cleanup',
+  },
+
+  // Dashboard endpoints
+  dashboard: {
+    stats: '/api/v1/dashboard/stats',
+    health: '/api/v1/dashboard/health',
+  },
 } as const;
 
 // Utility functions
