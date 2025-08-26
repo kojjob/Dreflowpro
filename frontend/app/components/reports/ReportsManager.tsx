@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, BarChart3, Download, Calendar, Filter, Search, Plus, Eye, Trash2 } from 'lucide-react';
-import { reportsApi, Report, ReportStatistics } from '../../services/reports';
+import { reportsApi, Report, ReportStatistics, CreateReportParams } from '../../services/reports';
 import ReportProgressModal from './ReportProgressModal';
 import ReportProgressIndicator from './ReportProgressIndicator';
+import CreateReportModal from './CreateReportModal';
 
 const ReportsManager: React.FC = () => {
   const [reports, setReports] = useState<Report[]>([]);
@@ -28,20 +29,33 @@ const ReportsManager: React.FC = () => {
   const loadReports = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
+
       const response = await reportsApi.listReports({
         status: statusFilter || undefined,
         report_type: typeFilter || undefined,
         limit: 50,
         offset: 0
       });
-      
+
       if (response.success) {
         setReports(response.data.reports);
       } else {
         setError('Failed to load reports');
       }
     } catch (err) {
-      setError('Failed to load reports: ' + (err as Error).message);
+      console.error('Failed to load reports:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+      // Only show error to user if it's not a network/API availability issue
+      if (!errorMessage.includes('API endpoint not available') &&
+          !errorMessage.includes('API is not available') &&
+          !errorMessage.includes('fetch')) {
+        setError('Failed to load reports: ' + errorMessage);
+      } else {
+        // For API availability issues, just log and set empty reports
+        setReports([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -52,9 +66,43 @@ const ReportsManager: React.FC = () => {
       const response = await reportsApi.getReportStatistics(30);
       if (response.success) {
         setStatistics(response.data);
+      } else {
+        console.warn('Failed to load statistics: API returned unsuccessful response');
+        // Set default statistics to prevent UI errors
+        setStatistics({
+          period_days: 30,
+          total_reports: 0,
+          completed_reports: 0,
+          pending_reports: 0,
+          failed_reports: 0,
+          total_downloads: 0,
+          reports_by_status: {},
+          reports_by_type: {},
+          recent_reports: []
+        });
       }
     } catch (err) {
       console.error('Failed to load statistics:', err);
+      // Set default statistics to prevent UI errors
+      setStatistics({
+        period_days: 30,
+        total_reports: 0,
+        completed_reports: 0,
+        pending_reports: 0,
+        failed_reports: 0,
+        total_downloads: 0,
+        reports_by_status: {},
+        reports_by_type: {},
+        recent_reports: []
+      });
+
+      // Only show error to user if it's not a network/API availability issue
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (!errorMessage.includes('API endpoint not available') &&
+          !errorMessage.includes('API is not available') &&
+          !errorMessage.includes('fetch')) {
+        setError('Failed to load report statistics. Please try again later.');
+      }
     }
   };
 
@@ -130,6 +178,52 @@ const ReportsManager: React.FC = () => {
     });
     loadReports();
     loadStatistics();
+  };
+
+  const handleCreateReport = async (params: CreateReportParams) => {
+    try {
+      setLoading(true);
+      const response = await reportsApi.createReport(params);
+
+      if (response.success) {
+        // Reload reports to show the new report
+        await loadReports();
+
+        // If generate_immediately is true, start generation
+        if (params.generate_immediately && response.data.report) {
+          const reportId = response.data.report.id;
+          setGeneratingReports(prev => new Set(prev).add(reportId));
+          setProgressModalReportId(reportId);
+
+          try {
+            const generateResponse = await reportsApi.generateReport(reportId);
+            if (!generateResponse.success) {
+              setError('Report created but failed to start generation');
+              setGeneratingReports(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(reportId);
+                return newSet;
+              });
+              setProgressModalReportId(null);
+            }
+          } catch (genErr) {
+            setError('Report created but failed to start generation: ' + (genErr as Error).message);
+            setGeneratingReports(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(reportId);
+              return newSet;
+            });
+            setProgressModalReportId(null);
+          }
+        }
+      } else {
+        setError('Failed to create report');
+      }
+    } catch (err) {
+      setError('Failed to create report: ' + (err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -450,6 +544,14 @@ const ReportsManager: React.FC = () => {
           onComplete={handleProgressComplete}
         />
       )}
+
+      {/* Create Report Modal */}
+      <CreateReportModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateReport}
+        loading={loading}
+      />
     </div>
   );
 };

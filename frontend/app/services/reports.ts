@@ -1,4 +1,5 @@
 import { apiService } from './api';
+import { API_ENDPOINTS } from '../config/dataConfig';
 
 export interface Report {
   id: string;
@@ -100,42 +101,39 @@ export interface BatchReportRequest {
 export const reportsApi = {
   // List reports with optional filters
   async listReports(params: ReportListParams = {}): Promise<ReportListResponse> {
-    const queryParams = new URLSearchParams();
-    
-    if (params.report_type) queryParams.append('report_type', params.report_type);
-    if (params.status) queryParams.append('status', params.status);
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.offset) queryParams.append('offset', params.offset.toString());
+    // Filter out undefined values to avoid backend validation errors
+    const cleanParams: any = {};
+    if (params.report_type) cleanParams.report_type = params.report_type;
+    if (params.status) cleanParams.status = params.status;
+    if (params.limit) cleanParams.limit = params.limit;
+    if (params.offset) cleanParams.offset = params.offset;
 
-    const query = queryParams.toString();
-    const url = `/api/v1/reports${query ? `?${query}` : ''}`;
-    
-    return apiService.get(url);
+    return apiService.getReports(cleanParams);
   },
 
   // Get report statistics for dashboard
   async getReportStatistics(days: number = 30): Promise<{ success: boolean; data: ReportStatistics }> {
-    return apiService.get(`/api/v1/reports/statistics`, { days: days.toString() });
+    return apiService.getReportStatistics(days);
   },
 
   // Get specific report by ID
   async getReport(reportId: string): Promise<{ success: boolean; data: Report }> {
-    return apiService.get(`/api/v1/reports/${reportId}`);
+    return apiService.get(API_ENDPOINTS.reports.get(reportId));
   },
 
   // Create new report
   async createReport(params: CreateReportParams): Promise<{ success: boolean; data: any }> {
-    return apiService.post('/api/v1/reports', params);
+    return apiService.createReport(params);
   },
 
   // Generate existing report
   async generateReport(reportId: string): Promise<{ success: boolean; data: any }> {
-    return apiService.post(`/api/v1/reports/${reportId}/generate`);
+    return apiService.generateReport(reportId);
   },
 
   // Download report file
   async downloadReport(reportId: string): Promise<Blob> {
-    const response = await fetch(`/api/v1/reports/${reportId}/download`, {
+    const response = await fetch(API_ENDPOINTS.reports.download(reportId), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('access_token')}`
@@ -151,7 +149,7 @@ export const reportsApi = {
 
   // Delete report
   async deleteReport(reportId: string): Promise<{ success: boolean; message: string }> {
-    return apiService.delete(`/api/v1/reports/${reportId}`);
+    return apiService.deleteReport(reportId);
   },
 
   // Share report with users
@@ -161,11 +159,11 @@ export const reportsApi = {
 
   // Batch generate reports
   async batchGenerateReports(requests: BatchReportRequest[]): Promise<{ success: boolean; data: any }> {
-    return apiService.post('/api/v1/reports/batch', { report_requests: requests });
+    return apiService.post(API_ENDPOINTS.reports.batch, { report_requests: requests });
   },
 
   // Clean up expired reports (admin only)
   async cleanupExpiredReports(): Promise<{ success: boolean; data: { cleaned_count: number; failed_count: number; total_expired: number } }> {
-    return apiService.post('/api/v1/reports/cleanup');
+    return apiService.post(API_ENDPOINTS.reports.cleanup);
   }
 };
