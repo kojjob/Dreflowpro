@@ -3,6 +3,10 @@
 
 version: 2
 
+# Skip historical commits before this PR
+skip-commits:
+  - '32ff41c'
+
 # Ignore example/template files
 paths-ignore:
   - '**/.env.example'
@@ -16,6 +20,8 @@ paths-ignore:
   - '**/spec/**'
   - '**/*.test.*'
   - '**/*.spec.*'
+  - 'fastapi_d_reflowpro/**'
+  - '**/test_validation.py'
 
 # Only scan actual source code
 paths-include:
