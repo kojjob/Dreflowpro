@@ -95,6 +95,11 @@ const ConnectorManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedConnector, setSelectedConnector] = useState<string | null>(null);
+  const [editingConnector, setEditingConnector] = useState<Connector | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [activeConnectorId, setActiveConnectorId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [previewData, setPreviewData] = useState<Record<string, any>>({});
   const [testResults, setTestResults] = useState<Record<string, any>>({});
@@ -105,9 +110,13 @@ const ConnectorManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('grid');
   const [refreshing, setRefreshing] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'status' | 'created' | 'updated'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedConnectors, setSelectedConnectors] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Form state for creating new connectors
   const [formData, setFormData] = useState({
@@ -201,14 +210,111 @@ const ConnectorManager: React.FC = () => {
     await fetchConnectors();
   };
 
-  // Filter connectors based on search and filter criteria
-  const filteredConnectors = connectors.filter(connector => {
-    const matchesSearch = connector.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          connector.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === 'all' || connector.type === filterType;
-    const matchesStatus = filterStatus === 'all' || connector.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  const handleSelectConnector = (id: string, selected: boolean) => {
+    if (selected) {
+      setSelectedConnectors([...selectedConnectors, id]);
+    } else {
+      setSelectedConnectors(selectedConnectors.filter(connId => connId !== id));
+    }
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedConnectors(filteredAndSortedConnectors.map(c => c.id));
+    } else {
+      setSelectedConnectors([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (confirm(`Are you sure you want to delete ${selectedConnectors.length} connectors?`)) {
+      setLoading(true);
+      try {
+        // Delete all selected connectors in parallel
+        await Promise.all(selectedConnectors.map(id => apiService.deleteConnector(id)));
+        setSelectedConnectors([]);
+        await fetchConnectors();
+        setError(null);
+      } catch (err: any) {
+        Logger.error('Bulk delete error:', err);
+        setError(err.message || 'Failed to delete some connectors');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleEdit = (connector: Connector) => {
+    setEditingConnector(connector);
+    setFormData({
+      name: connector.name,
+      description: connector.description || '',
+      type: connector.type,
+      connection_config: connector.connection_config || {}
+    });
+    setShowEditForm(true);
+  };
+
+  const handleUpdateConnector = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingConnector) return;
+    
+    setCreating(true);
+    setError(null);
+
+    try {
+      await apiService.updateConnector(editingConnector.id, formData);
+      await fetchConnectors();
+      setShowEditForm(false);
+      setEditingConnector(null);
+      resetForm();
+    } catch (err: any) {
+      Logger.error('Connector update error:', err);
+      setError(err.message || 'Failed to update connector');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleTest = async (connectorId: string) => {
+    setActiveConnectorId(connectorId);
+    setShowTestModal(true);
+    await testConnector(connectorId);
+  };
+
+  const handlePreview = async (connectorId: string) => {
+    setActiveConnectorId(connectorId);
+    setShowPreviewModal(true);
+    await previewConnectorData(connectorId);
+  };
+
+  // Filter and sort connectors
+  const filteredAndSortedConnectors = connectors
+    .filter(connector => {
+      const matchesSearch = connector.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            connector.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = filterType === 'all' || connector.type === filterType;
+      const matchesStatus = filterStatus === 'all' || connector.status === filterStatus;
+      return matchesSearch && matchesType && matchesStatus;
+    })
+    .sort((a, b) => {
+      let compareValue = 0;
+      switch (sortBy) {
+        case 'name':
+          compareValue = a.name.localeCompare(b.name);
+          break;
+        case 'status':
+          compareValue = a.status.localeCompare(b.status);
+          break;
+        case 'created':
+          compareValue = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'updated':
+          compareValue = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+          break;
+      }
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
 
   useEffect(() => {
     fetchConnectors();
@@ -517,8 +623,8 @@ const ConnectorManager: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Search and Filter Toolbar */}
-      <div className="bg-white rounded-xl shadow-md p-4">
+      {/* Advanced Search and Filter Toolbar */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search Bar */}
           <div className="flex-1 relative">
@@ -528,52 +634,112 @@ const ConnectorManager: React.FC = () => {
               placeholder="Search connectors by name or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-700 placeholder-gray-400"
             />
           </div>
 
-          {/* Filter Controls */}
-          <div className="flex gap-2">
+          {/* Filter and Action Controls */}
+          <div className="flex flex-wrap gap-2">
             {/* Type Filter */}
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Types</option>
-              <option value="database">Database</option>
-              <option value="api">API</option>
-              <option value="cloud">Cloud</option>
-              <option value="file">File</option>
-            </select>
+            <div className="relative">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none cursor-pointer"
+              >
+                <option value="all">All Types</option>
+                <option value="database">Database</option>
+                <option value="api">API</option>
+                <option value="cloud">Cloud</option>
+                <option value="file">File</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            </div>
 
             {/* Status Filter */}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="error">Error</option>
-              <option value="testing">Testing</option>
-            </select>
+            <div className="relative">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none cursor-pointer"
+              >
+                <option value="all">All Status</option>
+                <option value="active">✅ Active</option>
+                <option value="inactive">⏸️ Inactive</option>
+                <option value="error">❌ Error</option>
+                <option value="testing">🔄 Testing</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            </div>
+
+            {/* Sort Options */}
+            <div className="relative">
+              <select
+                value={`${sortBy}-${sortOrder}`}
+                onChange={(e) => {
+                  const [field, order] = e.target.value.split('-');
+                  setSortBy(field as any);
+                  setSortOrder(order as any);
+                }}
+                className="px-4 py-3 pr-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none cursor-pointer"
+              >
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="status-asc">Status ↑</option>
+                <option value="status-desc">Status ↓</option>
+                <option value="created-desc">Newest First</option>
+                <option value="created-asc">Oldest First</option>
+                <option value="updated-desc">Recently Updated</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            </div>
+
+            <div className="border-l border-gray-200 mx-2"></div>
 
             {/* View Mode Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
+            <div className="flex bg-gradient-to-r from-gray-100 to-gray-50 rounded-xl p-1.5 border border-gray-200">
+              <motion.button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''} transition-all`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all ${
+                  viewMode === 'grid' 
+                    ? 'bg-white shadow-md text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="Grid View"
               >
-                <Grid3X3 className="w-4 h-4 text-gray-600" />
-              </button>
-              <button
+                <Grid3X3 className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs font-medium">Grid</span>
+              </motion.button>
+              <motion.button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''} transition-all`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all ${
+                  viewMode === 'list' 
+                    ? 'bg-white shadow-md text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="List View"
               >
-                <List className="w-4 h-4 text-gray-600" />
-              </button>
+                <List className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs font-medium">List</span>
+              </motion.button>
+              <motion.button
+                onClick={() => setViewMode('table')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all ${
+                  viewMode === 'table' 
+                    ? 'bg-white shadow-md text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="Table View"
+              >
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs font-medium">Table</span>
+              </motion.button>
             </div>
 
             {/* Refresh Button */}
@@ -582,10 +748,10 @@ const ConnectorManager: React.FC = () => {
               disabled={refreshing}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+              className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all flex items-center gap-2 shadow-md"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden sm:inline font-medium">Refresh</span>
             </motion.button>
           </div>
         </div>
@@ -624,7 +790,7 @@ const ConnectorManager: React.FC = () => {
       </div>
 
       {/* Connector Templates (when no connectors exist) */}
-      {filteredConnectors.length === 0 && connectors.length === 0 && !loading && (
+      {filteredAndSortedConnectors.length === 0 && connectors.length === 0 && !loading && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Choose a Connector Type</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -645,25 +811,72 @@ const ConnectorManager: React.FC = () => {
         </Card>
       )}
 
-      {/* Connector List */}
-      <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'space-y-4'}>
-        {filteredConnectors.map((connector, index) => (
-          <Card key={connector.id} className="p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center space-x-3">
-                {getTypeIcon(connector.type)}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{connector.name}</h3>
-                  <p className="text-sm text-gray-600 capitalize">{getProviderName(connector)} ({connector.type})</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                {getStatusIcon(connector.status)}
-                <span className={`text-sm font-medium px-2 py-1 rounded ${getStatusColor(connector.status)}`}>
-                  {connector.status.toUpperCase()}
-                </span>
-              </div>
-            </div>
+      {/* Bulk Actions Bar */}
+      {selectedConnectors.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between"
+        >
+          <span className="text-sm font-medium text-blue-900">
+            {selectedConnectors.length} connector{selectedConnectors.length > 1 ? 's' : ''} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-1"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Selected
+            </button>
+            <button
+              onClick={() => setSelectedConnectors([])}
+              className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Connector List - Multiple View Modes */}
+      <AnimatePresence mode="popLayout">
+        {/* Grid View */}
+        {viewMode === 'grid' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredAndSortedConnectors.map((connector, index) => (
+              <motion.div
+                key={connector.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Card className="p-6 hover:shadow-xl transition-shadow duration-300 bg-white relative">
+                  {/* Selection Checkbox */}
+                  <div className="absolute top-4 left-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedConnectors.includes(connector.id)}
+                      onChange={(e) => handleSelectConnector(connector.id, e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex justify-between items-start mb-4 ml-8">
+                    <div className="flex items-center space-x-3">
+                      {getTypeIcon(connector.type)}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{connector.name}</h3>
+                        <p className="text-sm text-gray-600 capitalize">{getProviderName(connector)} ({connector.type})</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(connector.status)}
+                      <span className={`text-sm font-medium px-2 py-1 rounded ${getStatusColor(connector.status)}`}>
+                        {connector.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
 
             {/* Connection Details */}
             <div className="mb-4 p-3 bg-gray-50 rounded-lg">
@@ -774,21 +987,21 @@ const ConnectorManager: React.FC = () => {
             <div className="flex justify-between items-center">
               <div className="flex space-x-2">
                 <button
-                  onClick={() => testConnector(connector.id)}
+                  onClick={() => handleTest(connector.id)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
                 >
                   <TestTube className="w-3 h-3" />
                   <span>Test</span>
                 </button>
                 <button
-                  onClick={() => previewConnectorData(connector.id)}
+                  onClick={() => handlePreview(connector.id)}
                   className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
                 >
                   <Eye className="w-3 h-3" />
                   <span>Preview</span>
                 </button>
                 <button
-                  onClick={() => setSelectedConnector(connector.id)}
+                  onClick={() => handleEdit(connector)}
                   className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
                 >
                   <Edit className="w-3 h-3" />
@@ -803,22 +1016,293 @@ const ConnectorManager: React.FC = () => {
               </button>
             </div>
           </Card>
+        </motion.div>
+      ))}
+    </div>
+    )}
+
+    {/* List View */}
+    {viewMode === 'list' && (
+      <div className="space-y-3">
+        {filteredAndSortedConnectors.map((connector, index) => (
+          <motion.div
+            key={connector.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2, delay: index * 0.03 }}
+          >
+            <Card className="p-4 hover:shadow-lg transition-all duration-200 bg-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedConnectors.includes(connector.id)}
+                    onChange={(e) => handleSelectConnector(connector.id, e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  
+                  {/* Type Icon */}
+                  <div className="flex-shrink-0">
+                    {getTypeIcon(connector.type)}
+                  </div>
+                  
+                  {/* Main Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold text-gray-900 truncate">{connector.name}</h3>
+                      <span className="text-sm text-gray-500">({connector.type})</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {connector.type === 'database' && connector.connection_config && 
+                        `${connector.connection_config.host}:${connector.connection_config.port} • ${connector.connection_config.database}`}
+                      {connector.type === 'api' && connector.connection_config && 
+                        connector.connection_config.base_url}
+                      {connector.type === 'cloud' && connector.connection_config && 
+                        `${connector.connection_config.provider || 'Cloud'} • ${connector.connection_config.aws_region || connector.connection_config.cloud_region || 'Global'}`}
+                      {(connector.type === 'file' || connector.type === 'csv') && connector.connection_config && 
+                        connector.connection_config.file_path}
+                    </p>
+                  </div>
+                  
+                  {/* Status */}
+                  <div className="flex items-center gap-2 px-3">
+                    {getStatusIcon(connector.status)}
+                    <span className={`text-sm font-medium px-2 py-1 rounded ${getStatusColor(connector.status)}`}>
+                      {connector.status.toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  {/* Last Tested */}
+                  <div className="text-sm text-gray-500 px-3 hidden lg:block">
+                    {connector.last_tested 
+                      ? `Tested: ${new Date(connector.last_tested).toLocaleDateString()}`
+                      : 'Never tested'
+                    }
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTest(connector.id)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Test Connection"
+                    >
+                      <TestTube className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handlePreview(connector.id)}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Preview Data"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEdit(connector)}
+                      className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteConnector(connector.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
         ))}
       </div>
+    )}
 
-      {/* Empty State */}
-      {connectors.length === 0 && !loading && (
-        <Card className="p-8 text-center">
-          <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Connectors Found</h3>
-          <p className="text-gray-600 mb-4">Connect to your data sources to start building ETL pipelines.</p>
+    {/* Table View */}
+    {viewMode === 'table' && (
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedConnectors.length === filteredAndSortedConnectors.length && filteredAndSortedConnectors.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Provider
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Connection
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Last Tested
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredAndSortedConnectors.map((connector, index) => (
+                <motion.tr
+                  key={connector.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2, delay: index * 0.02 }}
+                  className="hover:bg-gray-50"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedConnectors.includes(connector.id)}
+                      onChange={(e) => handleSelectConnector(connector.id, e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      {getTypeIcon(connector.type)}
+                      <span className="ml-2 text-sm font-medium text-gray-900">
+                        {connector.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {connector.type}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {getProviderName(connector)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(connector.status)}
+                      <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(connector.status)}`}>
+                        {connector.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    <div className="max-w-xs truncate">
+                      {connector.type === 'database' && connector.connection_config && 
+                        `${connector.connection_config.host}:${connector.connection_config.port}`}
+                      {connector.type === 'api' && connector.connection_config && 
+                        connector.connection_config.base_url}
+                      {connector.type === 'cloud' && connector.connection_config && 
+                        `${connector.connection_config.provider || 'Cloud'}`}
+                      {(connector.type === 'file' || connector.type === 'csv') && connector.connection_config && 
+                        connector.connection_config.file_path}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {connector.last_tested 
+                      ? new Date(connector.last_tested).toLocaleDateString()
+                      : 'Never'
+                    }
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleTest(connector.id)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Test"
+                      >
+                        <TestTube className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handlePreview(connector.id)}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                        title="Preview"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(connector)}
+                        className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteConnector(connector.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    )}
+  </AnimatePresence>
+
+  {/* Empty State - No Results from Filter */}
+      {filteredAndSortedConnectors.length === 0 && connectors.length > 0 && !loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-gray-50 rounded-xl p-8 text-center"
+        >
+          <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No connectors match your filters</h3>
+          <p className="text-gray-600 mb-4">Try adjusting your search or filter criteria</p>
           <button
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => {
+              setSearchQuery('');
+              setFilterType('all');
+              setFilterStatus('all');
+            }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
           >
-            Add Your First Connector
+            Clear Filters
           </button>
-        </Card>
+        </motion.div>
+      )}
+
+      {/* Empty State - No Connectors */}
+      {connectors.length === 0 && !loading && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-12 text-center"
+        >
+          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Database className="w-10 h-10 text-blue-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Welcome to Data Connectors</h3>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            Connect to your data sources to start building powerful ETL pipelines and unlock insights from your data.
+          </p>
+          <motion.button
+            onClick={() => setShowCreateForm(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg"
+          >
+            Create Your First Connector
+          </motion.button>
+        </motion.div>
       )}
 
       {/* Create New Connector Modal - Modern Layered Design */}
@@ -1122,6 +1606,399 @@ const ConnectorManager: React.FC = () => {
                     </div>
                   </form>
                 )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Edit Connector Modal - Glassmorphism Design */}
+      {showEditForm && editingConnector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60"
+            onClick={() => {
+              setShowEditForm(false);
+              setEditingConnector(null);
+              resetForm();
+            }}
+          />
+          
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="relative w-full max-w-lg bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20"
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowEditForm(false);
+                setEditingConnector(null);
+                resetForm();
+              }}
+              className="absolute right-4 top-4 p-2 rounded-full bg-gray-100/80 hover:bg-gray-200/80 transition-colors"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-blue-100 rounded-lg">
+                  <Edit className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Edit Connector</h2>
+                  <p className="text-sm text-gray-500">{editingConnector.name}</p>
+                </div>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleUpdateConnector} className="space-y-4">
+                {/* Name Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => updateFormField('name', e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                {/* Description Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => updateFormField('description', e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Type and Status */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 mb-1">Type</p>
+                    <p className="text-sm font-medium text-gray-900 capitalize">{editingConnector.type}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 mb-1">Status</p>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${
+                        editingConnector.status === 'active' ? 'bg-green-500' :
+                        editingConnector.status === 'error' ? 'bg-red-500' : 'bg-gray-400'
+                      }`} />
+                      <p className="text-sm font-medium text-gray-900 capitalize">{editingConnector.status}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error Display */}
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditForm(false);
+                      setEditingConnector(null);
+                      resetForm();
+                    }}
+                    className="flex-1 px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Test Results Modal - Minimalist Design */}
+      {showTestModal && activeConnectorId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60"
+            onClick={() => {
+              setShowTestModal(false);
+              setActiveConnectorId(null);
+            }}
+          />
+          
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl"
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowTestModal(false);
+                setActiveConnectorId(null);
+              }}
+              className="absolute right-4 top-4 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-blue-100 rounded-lg">
+                  <TestTube className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Test Connection</h2>
+                  <p className="text-sm text-gray-500">
+                    {connectors.find(c => c.id === activeConnectorId)?.name}
+                  </p>
+                </div>
+              </div>
+
+              {/* Results */}
+              {testResults[activeConnectorId] ? (
+                <div className="space-y-4">
+                  {/* Status */}
+                  <div className={`p-4 rounded-lg border ${
+                    testResults[activeConnectorId].success 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-red-50 border-red-200'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      {testResults[activeConnectorId].success ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <p className={`font-medium ${
+                          testResults[activeConnectorId].success ? 'text-green-900' : 'text-red-900'
+                        }`}>
+                          {testResults[activeConnectorId].success ? 'Connected Successfully' : 'Connection Failed'}
+                        </p>
+                        <p className={`text-sm mt-1 ${
+                          testResults[activeConnectorId].success ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          {testResults[activeConnectorId].message || 
+                            (testResults[activeConnectorId].success 
+                              ? 'The connector is working properly.' 
+                              : 'Unable to establish connection.')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Details (if any) */}
+                  {testResults[activeConnectorId].details && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-2">Details</p>
+                      <pre className="text-xs text-gray-700 overflow-x-auto">
+                        {JSON.stringify(testResults[activeConnectorId].details, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleTest(activeConnectorId)}
+                      className="flex-1 px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm"
+                    >
+                      Test Again
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowTestModal(false);
+                        setActiveConnectorId(null);
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <div className="w-12 h-12 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Testing connection...</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Data Preview Modal - Clean Design */}
+      {showPreviewModal && activeConnectorId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60"
+            onClick={() => {
+              setShowPreviewModal(false);
+              setActiveConnectorId(null);
+            }}
+          />
+          
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg border border-gray-200">
+                    <Eye className="w-5 h-5 text-gray-700" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Data Preview</h2>
+                    <p className="text-sm text-gray-500">
+                      {connectors.find(c => c.id === activeConnectorId)?.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    setActiveConnectorId(null);
+                  }}
+                  className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {previewData[activeConnectorId] ? (
+                <div className="space-y-4">
+                  {previewData[activeConnectorId].data && previewData[activeConnectorId].data.length > 0 ? (
+                    <>
+                      {/* Info Bar */}
+                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Database className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm text-blue-700">
+                            Showing {previewData[activeConnectorId].data.length} rows
+                          </span>
+                        </div>
+                        <span className="text-sm text-blue-600 font-medium">
+                          {Object.keys(previewData[activeConnectorId].data[0]).length} columns
+                        </span>
+                      </div>
+                      
+                      {/* Simple Table */}
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                {Object.keys(previewData[activeConnectorId].data[0]).map((key) => (
+                                  <th
+                                    key={key}
+                                    className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase"
+                                  >
+                                    {key}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                              {previewData[activeConnectorId].data.map((row: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  {Object.values(row).map((value: any, cellIdx) => (
+                                    <td key={cellIdx} className="px-4 py-2 text-sm text-gray-900">
+                                      {value !== null && value !== undefined ? String(value) : '-'}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-6 text-center bg-gray-50 rounded-lg">
+                      <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600 font-medium">No Data Available</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Try testing the connection first
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-12 text-center">
+                  <div className="w-12 h-12 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading preview...</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => handlePreview(activeConnectorId)}
+                  className="px-4 py-2 text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg transition-colors font-medium text-sm"
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    setActiveConnectorId(null);
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </motion.div>
