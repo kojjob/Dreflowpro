@@ -1,0 +1,35 @@
+# GitGuardian configuration
+# This file tells GitGuardian to ignore certain files and patterns
+
+version: 2
+
+# Ignore example/template files
+paths-ignore:
+  - '**/.env.example'
+  - '**/.env.sample'
+  - '**/.env.template'
+  - '**/example.env'
+  - '**/*.example'
+  - '**/test/**'
+  - '**/tests/**'
+  - '**/__tests__/**'
+  - '**/spec/**'
+  - '**/*.test.*'
+  - '**/*.spec.*'
+
+# Only scan actual source code
+paths-include:
+  - '**/*.py'
+  - '**/*.js'
+  - '**/*.ts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.json'
+  - '**/*.yml'
+  - '**/*.yaml'
+
+# Exclude documentation
+paths-ignore:
+  - '**/*.md'
+  - '**/docs/**'
+  - '**/documentation/**'
