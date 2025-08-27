@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Reports API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reports API Test</h1>
+        <p>This page tests the reports API functionality to verify the error fix.</p>
+        
+        <div class="test-section">
+            <h3>Test 1: Get Report Statistics</h3>
+            <button onclick="testReportStatistics()">Test Statistics API</button>
+            <div id="statistics-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: List Reports</h3>
+            <button onclick="testListReports()">Test List Reports API</button>
+            <div id="reports-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: API Availability Check</h3>
+            <button onclick="testApiAvailability()">Test API Availability</button>
+            <div id="availability-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api/v1';
+        
+        function setResult(elementId, content, className = '') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = content;
+            element.className = className;
+        }
+        
+        function setLoading(elementId) {
+            setResult(elementId, 'Loading...', 'loading');
+        }
+        
+        async function testReportStatistics() {
+            setLoading('statistics-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports/statistics?days=30`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    setResult('statistics-result', 
+                        `<strong>✅ Success!</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'success'
+                    );
+                } else {
+                    setResult('statistics-result', 
+                        `<strong>⚠️ API Response Error</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                setResult('statistics-result', 
+                    `<strong>❌ Network Error</strong><br>
+                    Error: ${error.message}<br>
+                    This might indicate the backend is not running or there's a CORS issue.`, 
+                    'error'
+                );
+            }
+        }
+        
+        async function testListReports() {
+            setLoading('reports-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    setResult('reports-result', 
+                        `<strong>✅ Success!</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'success'
+                    );
+                } else {
+                    setResult('reports-result', 
+                        `<strong>⚠️ API Response Error</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                setResult('reports-result', 
+                    `<strong>❌ Network Error</strong><br>
+                    Error: ${error.message}<br>
+                    This might indicate the backend is not running or there's a CORS issue.`, 
+                    'error'
+                );
+            }
+        }
+        
+        async function testApiAvailability() {
+            setLoading('availability-result');
+            
+            try {
+                // Test if the backend is running
+                const backendResponse = await fetch('http://localhost:8000/health');
+                const backendData = await backendResponse.json();
+                
+                let result = `<strong>Backend Health Check:</strong><br>
+                Status: ${backendResponse.status}<br>
+                <pre>${JSON.stringify(backendData, null, 2)}</pre><br>`;
+                
+                // Test if Next.js API routes are working
+                try {
+                    const nextResponse = await fetch(`${API_BASE}/reports/statistics`);
+                    const nextData = await nextResponse.json();
+                    
+                    result += `<strong>Next.js API Route:</strong><br>
+                    Status: ${nextResponse.status}<br>
+                    <pre>${JSON.stringify(nextData, null, 2)}</pre>`;
+                    
+                    setResult('availability-result', result, 'success');
+                } catch (nextError) {
+                    result += `<strong>Next.js API Route Error:</strong><br>
+                    Error: ${nextError.message}`;
+                    setResult('availability-result', result, 'error');
+                }
+                
+            } catch (error) {
+                setResult('availability-result', 
+                    `<strong>❌ Backend Not Available</strong><br>
+                    Error: ${error.message}<br>
+                    The backend server at http://localhost:8000 is not running.`, 
+                    'error'
+                );
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            console.log('Running automatic tests...');
+            testApiAvailability();
+        });
+    </script>
+</body>
+</html>

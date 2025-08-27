@@ -1,0 +1,41 @@
+# GitGuardian configuration
+# This file tells GitGuardian to ignore certain files and patterns
+
+version: 2
+
+# Skip historical commits before this PR
+skip-commits:
+  - '32ff41c'
+
+# Ignore example/template files
+paths-ignore:
+  - '**/.env.example'
+  - '**/.env.sample'
+  - '**/.env.template'
+  - '**/example.env'
+  - '**/*.example'
+  - '**/test/**'
+  - '**/tests/**'
+  - '**/__tests__/**'
+  - '**/spec/**'
+  - '**/*.test.*'
+  - '**/*.spec.*'
+  - 'fastapi_d_reflowpro/**'
+  - '**/test_validation.py'
+
+# Only scan actual source code
+paths-include:
+  - '**/*.py'
+  - '**/*.js'
+  - '**/*.ts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.json'
+  - '**/*.yml'
+  - '**/*.yaml'
+
+# Exclude documentation
+paths-ignore:
+  - '**/*.md'
+  - '**/docs/**'
+  - '**/documentation/**'

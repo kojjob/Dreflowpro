@@ -75,6 +75,40 @@ export interface MockConnector {
   record_count?: number;
 }
 
+export interface MockReport {
+  id: string;
+  title: string;
+  description?: string;
+  report_type: 'EXECUTIVE' | 'ANALYST' | 'PRESENTATION' | 'DASHBOARD_EXPORT';
+  format: 'PDF' | 'EXCEL' | 'POWERPOINT' | 'CSV' | 'JSON';
+  status: 'PENDING' | 'GENERATING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  user_id: string;
+  organization_id: string;
+  dataset_id?: string;
+  pipeline_id?: string;
+  file_path?: string;
+  file_name?: string;
+  file_size?: number;
+  download_count: number;
+  view_count: number;
+  is_scheduled: boolean;
+  generated_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MockReportStatistics {
+  period_days: number;
+  total_reports: number;
+  completed_reports: number;
+  pending_reports: number;
+  failed_reports: number;
+  total_downloads: number;
+  reports_by_status: Record<string, number>;
+  reports_by_type: Record<string, number>;
+  recent_reports: MockReport[];
+}
+
 class MockApiService {
   private isApiAvailable = false;
 
@@ -258,6 +292,104 @@ class MockApiService {
       record_count: 45000
     }
   ];
+
+  private mockReports: MockReport[] = [
+    {
+      id: '1',
+      title: 'Q4 Executive Summary',
+      description: 'Quarterly executive report with key metrics and insights',
+      report_type: 'EXECUTIVE',
+      format: 'PDF',
+      status: 'COMPLETED',
+      user_id: '1',
+      organization_id: '1',
+      dataset_id: 'dataset_1',
+      file_path: '/reports/q4-executive-summary.pdf',
+      file_name: 'Q4_Executive_Summary.pdf',
+      file_size: 2048576, // 2MB
+      download_count: 15,
+      view_count: 42,
+      is_scheduled: false,
+      generated_at: '2024-01-20T14:30:00Z',
+      created_at: '2024-01-20T10:00:00Z',
+      updated_at: '2024-01-20T14:30:00Z'
+    },
+    {
+      id: '2',
+      title: 'Customer Analytics Report',
+      description: 'Detailed analysis of customer behavior and trends',
+      report_type: 'ANALYST',
+      format: 'EXCEL',
+      status: 'COMPLETED',
+      user_id: '1',
+      organization_id: '1',
+      pipeline_id: 'pipeline_1',
+      file_path: '/reports/customer-analytics.xlsx',
+      file_name: 'Customer_Analytics_Report.xlsx',
+      file_size: 1536000, // 1.5MB
+      download_count: 8,
+      view_count: 23,
+      is_scheduled: true,
+      generated_at: '2024-01-19T16:45:00Z',
+      created_at: '2024-01-19T09:00:00Z',
+      updated_at: '2024-01-19T16:45:00Z'
+    },
+    {
+      id: '3',
+      title: 'Sales Performance Dashboard',
+      description: 'Monthly sales performance metrics and KPIs',
+      report_type: 'DASHBOARD_EXPORT',
+      format: 'PDF',
+      status: 'GENERATING',
+      user_id: '1',
+      organization_id: '1',
+      dataset_id: 'dataset_2',
+      download_count: 0,
+      view_count: 0,
+      is_scheduled: false,
+      created_at: '2024-01-21T08:30:00Z',
+      updated_at: '2024-01-21T08:30:00Z'
+    },
+    {
+      id: '4',
+      title: 'Board Presentation',
+      description: 'Quarterly board presentation with financial highlights',
+      report_type: 'PRESENTATION',
+      format: 'POWERPOINT',
+      status: 'FAILED',
+      user_id: '1',
+      organization_id: '1',
+      dataset_id: 'dataset_3',
+      download_count: 0,
+      view_count: 0,
+      is_scheduled: false,
+      created_at: '2024-01-18T14:00:00Z',
+      updated_at: '2024-01-18T14:15:00Z'
+    }
+  ];
+
+  private mockReportStatistics: MockReportStatistics = {
+    period_days: 30,
+    total_reports: 12,
+    completed_reports: 8,
+    pending_reports: 1,
+    failed_reports: 3,
+    total_downloads: 45,
+    reports_by_status: {
+      'COMPLETED': 8,
+      'GENERATING': 1,
+      'PENDING': 0,
+      'FAILED': 3,
+      'CANCELLED': 0
+    },
+    reports_by_type: {
+      'EXECUTIVE': 3,
+      'ANALYST': 4,
+      'PRESENTATION': 2,
+      'DASHBOARD_EXPORT': 3
+    },
+    recent_reports: []
+  };
 
   async getHealthStatus(): Promise<MockHealthStatus> {
     // Simulate API delay
@@ -632,6 +764,350 @@ class MockApiService {
 
   getApiStatus(): boolean {
     return this.isApiAvailable;
+  }
+
+  // ========================================
+  // REPORTS MOCK DATA
+  // ========================================
+
+  async getReports(params: { report_type?: string; status?: string; limit?: number; offset?: number } = {}): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+
+    let filteredReports = [...this.mockReports];
+
+    // Apply filters
+    if (params.report_type) {
+      filteredReports = filteredReports.filter(r => r.report_type === params.report_type);
+    }
+    if (params.status) {
+      filteredReports = filteredReports.filter(r => r.status === params.status);
+    }
+
+    const limit = params.limit || 50;
+    const offset = params.offset || 0;
+    const paginatedReports = filteredReports.slice(offset, offset + limit);
+
+    return {
+      success: true,
+      data: {
+        reports: paginatedReports,
+        total_count: filteredReports.length,
+        page_size: limit,
+        offset: offset,
+        has_more: offset + limit < filteredReports.length
+      }
+    };
+  }
+
+  async getReportStatistics(days: number = 30): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate API delay
+
+    // Update recent reports with the latest ones
+    const recentReports = this.mockReports
+      .filter(r => r.status === 'COMPLETED')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+
+    return {
+      success: true,
+      data: {
+        ...this.mockReportStatistics,
+        period_days: days,
+        recent_reports: recentReports
+      }
+    };
+  }
+
+  async createReport(reportData: any): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 400)); // Simulate API delay
+
+    const newReport: MockReport = {
+      id: (this.mockReports.length + 1).toString(),
+      title: reportData.title,
+      description: reportData.description,
+      report_type: reportData.report_type,
+      format: reportData.format,
+      status: 'PENDING',
+      user_id: '1',
+      organization_id: '1',
+      dataset_id: reportData.dataset_id,
+      pipeline_id: reportData.pipeline_id,
+      download_count: 0,
+      view_count: 0,
+      is_scheduled: !!reportData.schedule_config,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.mockReports.push(newReport);
+
+    return {
+      success: true,
+      data: {
+        report: newReport,
+        message: 'Report created successfully'
+      }
+    };
+  }
+
+  async generateReport(reportId: string): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+
+    const report = this.mockReports.find(r => r.id === reportId);
+    if (!report) {
+      throw new Error('Report not found');
+    }
+
+    // Update report status to generating
+    report.status = 'GENERATING';
+    report.updated_at = new Date().toISOString();
+
+    return {
+      success: true,
+      data: {
+        message: 'Report generation started',
+        task_id: `task_${reportId}_${Date.now()}`
+      }
+    };
+  }
+
+  async deleteReport(reportId: string): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate API delay
+
+    const reportIndex = this.mockReports.findIndex(r => r.id === reportId);
+    if (reportIndex === -1) {
+      throw new Error('Report not found');
+    }
+
+    this.mockReports.splice(reportIndex, 1);
+
+    return {
+      success: true,
+      message: 'Report deleted successfully'
+    };
+  }
+
+  // ========================================
+  // DATASETS MOCK METHODS
+  // ========================================
+
+  async getDatasets(): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+    
+    const mockDatasets = [
+      {
+        id: 'dataset_1',
+        name: 'Customer Analytics Dataset',
+        type: 'dataset',
+        description: 'Customer behavior and demographics data',
+        recordCount: 125000,
+        lastUpdated: '2024-01-20',
+        created_at: '2024-01-15T10:30:00Z',
+        format: 'CSV',
+        size: 15728640 // 15MB
+      },
+      {
+        id: 'dataset_2',
+        name: 'Sales Performance Dataset',
+        type: 'dataset',
+        description: 'Sales metrics and revenue data',
+        recordCount: 45000,
+        lastUpdated: '2024-01-19',
+        created_at: '2024-01-10T09:15:00Z',
+        format: 'JSON',
+        size: 8388608 // 8MB
+      },
+      {
+        id: 'dataset_3',
+        name: 'Product Inventory Dataset',
+        type: 'dataset',
+        description: 'Current inventory levels and product data',
+        recordCount: 12500,
+        lastUpdated: '2024-01-21',
+        created_at: '2024-01-18T14:22:00Z',
+        format: 'Excel',
+        size: 3145728 // 3MB
+      }
+    ];
+
+    return {
+      success: true,
+      data: {
+        datasets: mockDatasets,
+        total_count: mockDatasets.length
+      }
+    };
+  }
+
+  async getDataset(datasetId: string): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+    
+    const datasets = [
+      {
+        id: 'dataset_1',
+        name: 'Customer Analytics Dataset',
+        type: 'dataset',
+        description: 'Customer behavior and demographics data',
+        recordCount: 125000,
+        lastUpdated: '2024-01-20',
+        created_at: '2024-01-15T10:30:00Z',
+        format: 'CSV',
+        size: 15728640, // 15MB
+        columns: ['customer_id', 'name', 'email', 'age', 'location', 'signup_date', 'last_activity'],
+        schema: {
+          customer_id: 'INTEGER',
+          name: 'VARCHAR(255)',
+          email: 'VARCHAR(255)',
+          age: 'INTEGER',
+          location: 'VARCHAR(100)',
+          signup_date: 'DATE',
+          last_activity: 'DATETIME'
+        }
+      },
+      {
+        id: 'dataset_2',
+        name: 'Sales Performance Dataset',
+        type: 'dataset',
+        description: 'Sales metrics and revenue data',
+        recordCount: 45000,
+        lastUpdated: '2024-01-19',
+        created_at: '2024-01-10T09:15:00Z',
+        format: 'JSON',
+        size: 8388608, // 8MB
+        columns: ['sale_id', 'customer_id', 'product_id', 'amount', 'sale_date', 'region'],
+        schema: {
+          sale_id: 'INTEGER',
+          customer_id: 'INTEGER',
+          product_id: 'INTEGER',
+          amount: 'DECIMAL(10,2)',
+          sale_date: 'DATE',
+          region: 'VARCHAR(50)'
+        }
+      },
+      {
+        id: 'dataset_3',
+        name: 'Product Inventory Dataset',
+        type: 'dataset',
+        description: 'Current inventory levels and product data',
+        recordCount: 12500,
+        lastUpdated: '2024-01-21',
+        created_at: '2024-01-18T14:22:00Z',
+        format: 'Excel',
+        size: 3145728, // 3MB
+        columns: ['product_id', 'name', 'category', 'stock_level', 'price', 'last_restocked'],
+        schema: {
+          product_id: 'INTEGER',
+          name: 'VARCHAR(255)',
+          category: 'VARCHAR(100)',
+          stock_level: 'INTEGER',
+          price: 'DECIMAL(8,2)',
+          last_restocked: 'DATE'
+        }
+      }
+    ];
+
+    const dataset = datasets.find(d => d.id === datasetId);
+    if (!dataset) {
+      throw new Error('Dataset not found');
+    }
+
+    return {
+      success: true,
+      data: dataset
+    };
+  }
+
+  // ========================================
+  // REPORT CONFIGURATION MOCK METHODS
+  // ========================================
+
+  async getReportConfig(): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+    
+    return {
+      success: true,
+      data: {
+        report_types: [
+          {
+            value: 'EXECUTIVE',
+            label: 'Executive Summary',
+            description: 'High-level overview for leadership',
+            icon: 'BarChart3',
+            color: 'from-blue-500 to-indigo-600',
+            features: ['Key metrics', 'Trend analysis', 'Executive insights']
+          },
+          {
+            value: 'ANALYST',
+            label: 'Analyst Report',
+            description: 'Detailed analysis with insights',
+            icon: 'FileText',
+            color: 'from-green-500 to-emerald-600',
+            features: ['Deep dive analysis', 'Statistical insights', 'Data correlations']
+          },
+          {
+            value: 'PRESENTATION',
+            label: 'Presentation',
+            description: 'Slide deck for meetings',
+            icon: 'Presentation',
+            color: 'from-purple-500 to-violet-600',
+            features: ['Visual slides', 'Charts and graphs', 'Executive summary']
+          },
+          {
+            value: 'DASHBOARD_EXPORT',
+            label: 'Dashboard Export',
+            description: 'Current dashboard snapshot',
+            icon: 'Database',
+            color: 'from-orange-500 to-red-600',
+            features: ['Live data snapshot', 'Interactive elements', 'Real-time metrics']
+          }
+        ],
+        formats: [
+          { 
+            value: 'PDF', 
+            label: 'PDF Document', 
+            description: 'Portable document format',
+            supported_types: ['EXECUTIVE', 'ANALYST', 'PRESENTATION'],
+            max_size_mb: 50
+          },
+          { 
+            value: 'EXCEL', 
+            label: 'Excel Spreadsheet', 
+            description: 'Microsoft Excel format',
+            supported_types: ['ANALYST', 'DASHBOARD_EXPORT'],
+            max_size_mb: 100
+          },
+          { 
+            value: 'POWERPOINT', 
+            label: 'PowerPoint', 
+            description: 'Microsoft PowerPoint format',
+            supported_types: ['PRESENTATION'],
+            max_size_mb: 75
+          },
+          { 
+            value: 'CSV', 
+            label: 'CSV Data', 
+            description: 'Comma-separated values',
+            supported_types: ['ANALYST', 'DASHBOARD_EXPORT'],
+            max_size_mb: 20
+          },
+          { 
+            value: 'JSON', 
+            label: 'JSON Data', 
+            description: 'JavaScript Object Notation',
+            supported_types: ['DASHBOARD_EXPORT'],
+            max_size_mb: 10
+          }
+        ],
+        settings: {
+          default_report_type: 'EXECUTIVE',
+          default_format: 'PDF',
+          max_concurrent_generations: 3,
+          max_file_retention_days: 30,
+          supported_languages: ['en', 'es', 'fr'],
+          timezone: 'UTC'
+        }
+      }
+    };
   }
 }
 

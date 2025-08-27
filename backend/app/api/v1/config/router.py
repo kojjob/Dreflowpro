@@ -376,6 +376,111 @@ async def get_quality_thresholds(
         )
 
 
+@router.get("/dashboard")
+async def get_dashboard_config(
+    current_user: User = Depends(get_current_user)
+):
+    """Get dashboard configuration settings."""
+    try:
+        settings = get_settings()
+        
+        # Default dashboard configuration
+        dashboard_config = {
+            "layout": {
+                "sidebar_width": 280,
+                "collapsed_sidebar_width": 64,
+                "header_height": 64,
+                "footer_height": 48,
+                "enable_responsive": True,
+                "breakpoints": {
+                    "mobile": 768,
+                    "tablet": 1024,
+                    "desktop": 1280
+                }
+            },
+            "theme": {
+                "primary_color": "#3b82f6",
+                "secondary_color": "#10b981",
+                "accent_color": "#f59e0b",
+                "danger_color": "#ef4444",
+                "dark_mode_enabled": True,
+                "default_theme": "light"
+            },
+            "features": {
+                "real_time_updates": True,
+                "notifications": True,
+                "export_functionality": True,
+                "advanced_filters": True,
+                "collaboration": True,
+                "auto_save": True
+            },
+            "preferences": {
+                "default_view": "overview",
+                "items_per_page": 25,
+                "refresh_interval": 30000,
+                "enable_tooltips": True,
+                "show_help_hints": True,
+                "auto_collapse_sidebar": False
+            },
+            "widgets": {
+                "available_widgets": [
+                    "stats_cards",
+                    "line_chart",
+                    "bar_chart",
+                    "pie_chart",
+                    "data_table",
+                    "activity_feed",
+                    "system_health"
+                ],
+                "default_dashboard_layout": [
+                    {"id": "stats_overview", "type": "stats_cards", "priority": 1},
+                    {"id": "pipeline_activity", "type": "line_chart", "priority": 2},
+                    {"id": "system_health", "type": "system_health", "priority": 3},
+                    {"id": "recent_activity", "type": "activity_feed", "priority": 4}
+                ]
+            },
+            "navigation": {
+                "items": [
+                    {"id": "overview", "name": "Overview", "icon": "Home", "enabled": True},
+                    {"id": "pipelines", "name": "Pipelines", "icon": "Zap", "enabled": True},
+                    {"id": "connectors", "name": "Connectors", "icon": "Database", "enabled": True},
+                    {"id": "data-analysis", "name": "Data Analysis", "icon": "BarChart", "enabled": True},
+                    {"id": "tasks", "name": "Tasks", "icon": "CheckSquare", "enabled": True},
+                    {"id": "ai-insights", "name": "AI Insights", "icon": "Brain", "enabled": True},
+                    {"id": "reports", "name": "Reports", "icon": "FileText", "enabled": True}
+                ],
+                "show_icons": True,
+                "collapsible": True
+            },
+            "data_refresh": {
+                "auto_refresh_enabled": True,
+                "refresh_intervals": [10, 30, 60, 300, 900],
+                "default_interval": 30
+            },
+            "organization": {
+                "id": str(current_user.organization_id) if current_user.organization_id else None,
+                "name": "Organization",  # Would be fetched from organization table in real implementation
+                "timezone": "UTC",
+                "date_format": "YYYY-MM-DD",
+                "time_format": "24h"
+            }
+        }
+        
+        return {
+            "success": True,
+            "config": dashboard_config,
+            "user_id": str(current_user.id),
+            "timestamp": "2024-01-15T10:30:00Z"  # Would be actual timestamp
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get dashboard config: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve dashboard configuration"
+        )
+
+
 @router.get("/chart-options")
 async def get_chart_options(
     current_user: User = Depends(get_current_user)

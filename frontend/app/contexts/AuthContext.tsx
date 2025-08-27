@@ -195,8 +195,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return false;
     } catch (error: any) {
       Logger.error('Login failed:', error);
-      setError(error.message || 'Login failed');
-      toast.error('Login failed. Please check your credentials.');
+
+      // Provide more specific error messages based on error type
+      let userMessage = 'Login failed. Please check your credentials.';
+      let errorMessage = error.message || 'Login failed';
+
+      if (error.message?.includes('Backend service unavailable') ||
+          error.message?.includes('Network connection failed') ||
+          error.message?.includes('BACKEND_CONNECTION_ERROR')) {
+        userMessage = 'Unable to connect to the server. Please try again later.';
+        errorMessage = 'Backend service unavailable';
+      } else if (error.message?.includes('Authentication failed')) {
+        userMessage = 'Invalid email or password. Please try again.';
+      } else if (error.message?.includes('timeout')) {
+        userMessage = 'Request timed out. Please check your connection and try again.';
+      }
+
+      setError(errorMessage);
+      toast.error(userMessage);
       return false;
     } finally {
       setLoading(false);
@@ -267,7 +283,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshTokenIfNeeded = async (): Promise<void> => {
-    if (!session?.refreshToken) return;
+    if (!session?.refreshToken) {
+      Logger.warn('🔐 No refresh token available for refresh');
+      return;
+    }
 
     try {
       const expirationTime = new Date(session.expiresAt).getTime();
@@ -276,10 +295,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Refresh if token expires in less than 10 minutes
       if (timeUntilExpiry < 10 * 60 * 1000) {
+        Logger.log('🔐 Refreshing token, expires in', Math.round(timeUntilExpiry / 1000 / 60), 'minutes');
+        
         const response = await apiService.refreshToken(session.refreshToken);
         
-        if (response.access_token) {
+        if (response && response.access_token) {
           const newExpiresAt = getTokenExpiration(response.access_token);
+          
+          Logger.log('🔐 Token refreshed successfully, new expiry:', newExpiresAt);
           
           // Update stored tokens
           setStoredTokens(response.access_token, response.refresh_token || session.refreshToken, newExpiresAt);
@@ -290,11 +313,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             refreshToken: response.refresh_token || prev.refreshToken,
             expiresAt: newExpiresAt
           } : null);
+        } else {
+          Logger.error('🔐 Token refresh response missing access_token:', response);
+          throw new Error('Invalid token refresh response');
         }
+      } else {
+        Logger.debug('🔐 Token refresh not needed, expires in', Math.round(timeUntilExpiry / 1000 / 60), 'minutes');
       }
-    } catch (error) {
-      Logger.error('Token refresh failed:', error);
-      // Force logout on refresh failure
+    } catch (error: any) {
+      Logger.error('🔐 Token refresh failed:', error);
+      
+      // Don't force logout immediately for network errors - retry next time
+      if (error?.message?.includes('fetch') || error?.message?.includes('Network') || error?.message?.includes('timeout')) {
+        Logger.warn('🔐 Token refresh failed due to network error, will retry next time');
+        return;
+      }
+      
+      // Only force logout for actual authentication failures
+      Logger.error('🔐 Authentication error, forcing logout');
       await logout();
     }
   };

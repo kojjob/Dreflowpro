@@ -11,7 +11,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
 from app.core.database import engine, Base
-from app.models.user import User, SocialAccount, Organization, APIKey
+# Import all models to ensure they're registered with Base.metadata
+from app.models.all import *
 
 
 async def update_schema():
@@ -23,9 +24,13 @@ async def update_schema():
         await conn.run_sync(Base.metadata.create_all)
     
     print("✅ Database schema updated successfully!")
-    print("📋 New models added:")
-    print("   - SocialAccount (OAuth provider connections)")
-    print("   - Updated User model (auth_method, avatar_url, provider_data)")
+    print("📋 All models synchronized:")
+    print("   - User and authentication models")
+    print("   - Pipeline and connector models")  
+    print("   - Report models (including missing next_run_at/last_run_at columns)")
+    print("   - AI insights and telemetry models")
+    print("   - Multi-tenant models")
+    print("   - Token family models")
 
 
 if __name__ == "__main__":

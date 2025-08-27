@@ -182,24 +182,24 @@ class AdaptiveRateLimiter:
                 }
             
             # Use Redis pipeline for atomic operations
-            pipe = self.redis.pipeline()
-            
+            pipe = await self.redis.pipeline()
+
             # Remove old entries outside the window
             pipe.zremrangebyscore(key, 0, window_start)
             pipe.zremrangebyscore(burst_key, 0, window_start - 60)  # Burst window is shorter
-            
+
             # Count current attempts in window
             pipe.zcard(key)
             pipe.zcard(burst_key)
-            
+
             # Add current request
             pipe.zadd(key, {str(current_time): current_time})
             pipe.zadd(burst_key, {str(current_time): current_time})
-            
+
             # Set expiration on the keys
             pipe.expire(key, window_seconds + 1)
             pipe.expire(burst_key, 120)  # 2-minute burst tracking
-            
+
             results = await pipe.execute()
             current_attempts = results[2] + 1  # +1 for the current request
             burst_attempts = results[3] + 1

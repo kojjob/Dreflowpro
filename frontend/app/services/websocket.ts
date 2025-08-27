@@ -1,3 +1,6 @@
+import { tokenManager } from '../utils/tokenManager';
+import Logger from '../utils/logger';
+
 export interface WebSocketMessage {
   type: string;
   data?: any;
@@ -56,19 +59,30 @@ export class WebSocketService {
 
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
-        // Get auth token
-        this.token = localStorage.getItem('access_token');
-        if (!this.token) {
+        // Get auth token using token manager
+        const tokenData = tokenManager.getStoredToken();
+        if (!tokenData?.access_token) {
+          Logger.warn('🔌 No authentication token found for WebSocket connection');
           reject(new Error('No authentication token found'));
           return;
         }
+
+        // Check if token is expired
+        if (!tokenManager.isTokenValid(tokenData)) {
+          Logger.warn('🔌 Authentication token is expired for WebSocket connection');
+          reject(new Error('Authentication token is expired'));
+          return;
+        }
+
+        this.token = tokenData.access_token;
+        Logger.log('🔌 Connecting to WebSocket with valid token');
 
         // Create WebSocket connection with auth token
         const wsUrl = `${this.url}?token=${encodeURIComponent(this.token)}`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
-          console.log('WebSocket connected');
+          Logger.log('🔌 WebSocket connected successfully');
           this.reconnectAttempts = 0;
           resolve();
         };
@@ -78,12 +92,12 @@ export class WebSocketService {
             const message: WebSocketMessage = JSON.parse(event.data);
             this.handleMessage(message);
           } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
+            Logger.error('🔌 Failed to parse WebSocket message:', error);
           }
         };
 
         this.ws.onclose = (event) => {
-          console.log('WebSocket disconnected:', event.code, event.reason);
+          Logger.warn('🔌 WebSocket disconnected:', event.code, event.reason);
           this.connectionPromise = null;
           
           if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -92,11 +106,12 @@ export class WebSocketService {
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
+          Logger.error('🔌 WebSocket error:', error);
           reject(new Error('WebSocket connection failed'));
         };
 
-      } catch (error) {
+      } catch (error: any) {
+        Logger.error('🔌 Failed to create WebSocket connection:', error);
         reject(error);
       }
     });
@@ -202,6 +217,15 @@ export class WebSocketService {
     }
     this.connectionPromise = null;
     this.messageHandlers.clear();
+  }
+
+  /**
+   * Refresh connection with new token (called after token refresh)
+   */
+  async refreshConnection(): Promise<void> {
+    Logger.log('🔌 Refreshing WebSocket connection with new token');
+    this.disconnect();
+    return this.connect();
   }
 
   isConnected(): boolean {

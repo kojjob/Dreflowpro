@@ -147,8 +147,8 @@ export const DreflowDesignSystem = {
   }
 };
 
-// Component Style Presets
-export const ComponentStyles = {
+// Base component styles (without circular references)
+const baseComponentStyles = {
   // Modal styles
   modal: {
     overlay: `fixed inset-0 bg-black/50 ${DreflowDesignSystem.blur.overlay} flex items-center justify-center z-50`,
@@ -191,12 +191,17 @@ export const ComponentStyles = {
     tabActive: 'border-brand-500 text-brand-600',
     tabInactive: 'border-transparent text-gray-600 hover:text-gray-900',
   },
+};
 
-  // Chart container styles
+// Component Style Presets (with chart styles that reference base styles)
+export const ComponentStyles = {
+  ...baseComponentStyles,
+
+  // Chart container styles (now referencing the already defined card styles)
   chart: {
-    container: `${ComponentStyles.card.base} overflow-hidden`,
-    header: `${ComponentStyles.card.header}`,
-    content: `${ComponentStyles.card.content}`,
+    container: `${baseComponentStyles.card.base} overflow-hidden`,
+    header: `${baseComponentStyles.card.header}`,
+    content: `${baseComponentStyles.card.content}`,
   }
 };
 

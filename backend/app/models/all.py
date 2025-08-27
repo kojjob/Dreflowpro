@@ -17,6 +17,9 @@ from .connector import (
 # Phase 3 models - multi-tenancy and enterprise features
 from .tenant import Tenant, TenantApiKey, TenantUsageLog, TenantInvitation
 
+# Phase 4 models - reporting and analytics
+from .report import GeneratedReport, ReportTemplate, ReportType, ReportStatus, ReportFormat
+
 __all__ = [
     # User models (Phase 1)
     "Organization",
@@ -48,5 +51,12 @@ __all__ = [
     "Tenant",
     "TenantApiKey",
     "TenantUsageLog",
-    "TenantInvitation"
+    "TenantInvitation",
+    
+    # Report models (Phase 4)
+    "GeneratedReport",
+    "ReportTemplate", 
+    "ReportType",
+    "ReportStatus",
+    "ReportFormat"
 ]

@@ -156,12 +156,14 @@ const nextConfig: NextConfig = {
     if (!dev) {
       config.optimization = {
         ...config.optimization,
-        // Split chunks for better caching
+        // Enhanced split chunks for better caching
         splitChunks: {
           ...config.optimization?.splitChunks,
           chunks: 'all',
           minSize: 20000,
           maxSize: 244000,
+          maxAsyncRequests: 30,
+          maxInitialRequests: 30,
           cacheGroups: {
             ...config.optimization?.splitChunks?.cacheGroups,
             // Framework chunks (React, Next.js)

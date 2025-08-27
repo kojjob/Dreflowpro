@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, BarChart3, Download, Calendar, Filter, Search, Plus, Eye, Trash2 } from 'lucide-react';
-import { reportsApi, Report, ReportStatistics } from '../../services/reports';
+import { reportsApi, Report, ReportStatistics, CreateReportParams } from '../../services/reports';
+import { apiService } from '../../services/api';
 import ReportProgressModal from './ReportProgressModal';
 import ReportProgressIndicator from './ReportProgressIndicator';
+import CreateReportModal from './CreateReportModal';
 
 const ReportsManager: React.FC = () => {
   const [reports, setReports] = useState<Report[]>([]);
@@ -18,30 +20,58 @@ const ReportsManager: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [generatingReports, setGeneratingReports] = useState<Set<string>>(new Set());
   const [progressModalReportId, setProgressModalReportId] = useState<string | null>(null);
+  const [reportConfig, setReportConfig] = useState<any>(null);
 
   // Load reports and statistics on component mount
   useEffect(() => {
     loadReports();
     loadStatistics();
+    loadReportConfig();
   }, [statusFilter, typeFilter]);
 
   const loadReports = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
+
       const response = await reportsApi.listReports({
         status: statusFilter || undefined,
         report_type: typeFilter || undefined,
         limit: 50,
         offset: 0
       });
-      
+
       if (response.success) {
         setReports(response.data.reports);
+        
+        // Initialize generating reports set with any reports that are already generating
+        const currentlyGenerating = response.data.reports
+          .filter((report: any) => report.status === 'GENERATING')
+          .map((report: any) => report.id);
+        
+        if (currentlyGenerating.length > 0) {
+          setGeneratingReports(prev => {
+            const newSet = new Set(prev);
+            currentlyGenerating.forEach(id => newSet.add(id));
+            return newSet;
+          });
+        }
       } else {
         setError('Failed to load reports');
       }
     } catch (err) {
-      setError('Failed to load reports: ' + (err as Error).message);
+      console.error('Failed to load reports:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+      // Only show error to user if it's not a network/API availability issue
+      if (!errorMessage.includes('API endpoint not available') &&
+          !errorMessage.includes('API is not available') &&
+          !errorMessage.includes('fetch')) {
+        setError('Failed to load reports: ' + errorMessage);
+      } else {
+        // For API availability issues, just log and set empty reports
+        setReports([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -52,11 +82,111 @@ const ReportsManager: React.FC = () => {
       const response = await reportsApi.getReportStatistics(30);
       if (response.success) {
         setStatistics(response.data);
+      } else {
+        console.warn('Failed to load statistics: API returned unsuccessful response');
+        // Set default statistics to prevent UI errors
+        setStatistics({
+          period_days: 30,
+          total_reports: 0,
+          completed_reports: 0,
+          pending_reports: 0,
+          failed_reports: 0,
+          total_downloads: 0,
+          reports_by_status: {},
+          reports_by_type: {},
+          recent_reports: []
+        });
       }
     } catch (err) {
       console.error('Failed to load statistics:', err);
+      // Set default statistics to prevent UI errors
+      setStatistics({
+        period_days: 30,
+        total_reports: 0,
+        completed_reports: 0,
+        pending_reports: 0,
+        failed_reports: 0,
+        total_downloads: 0,
+        reports_by_status: {},
+        reports_by_type: {},
+        recent_reports: []
+      });
+
+      // Only show error to user if it's not a network/API availability issue
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (!errorMessage.includes('API endpoint not available') &&
+          !errorMessage.includes('API is not available') &&
+          !errorMessage.includes('fetch')) {
+        setError('Failed to load report statistics. Please try again later.');
+      }
     }
   };
+
+  const loadReportConfig = async () => {
+    try {
+      const response = await apiService.getReportConfig();
+      if (response.success) {
+        setReportConfig(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load report configuration:', err);
+      // Use fallback configuration if API is not available
+      setReportConfig({
+        reportTypes: [
+          { value: 'EXECUTIVE', label: 'Executive Summary' },
+          { value: 'ANALYST', label: 'Analyst Report' },
+          { value: 'PRESENTATION', label: 'Presentation' },
+          { value: 'DASHBOARD_EXPORT', label: 'Dashboard Export' }
+        ],
+        reportStatuses: [
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'GENERATING', label: 'Generating' },
+          { value: 'COMPLETED', label: 'Completed' },
+          { value: 'FAILED', label: 'Failed' },
+          { value: 'CANCELLED', label: 'Cancelled' }
+        ]
+      });
+    }
+  };
+
+  // Poll for status updates on generating reports
+  useEffect(() => {
+    if (generatingReports.size === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      const reportsToCheck = Array.from(generatingReports);
+      
+      for (const reportId of reportsToCheck) {
+        try {
+          const response = await reportsApi.getReport(reportId);
+          if (response.success) {
+            const report = response.data;
+            
+            // If report is no longer generating, update state and refresh list
+            if (report.status !== 'GENERATING') {
+              setGeneratingReports(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(reportId);
+                return newSet;
+              });
+              
+              // Close progress modal if it's for this report
+              if (progressModalReportId === reportId) {
+                setProgressModalReportId(null);
+              }
+              
+              // Refresh the reports list to show updated status
+              loadReports();
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to check status for report ${reportId}:`, error);
+        }
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [generatingReports.size, progressModalReportId]);
 
   const handleDownloadReport = async (reportId: string, fileName?: string) => {
     try {
@@ -132,6 +262,52 @@ const ReportsManager: React.FC = () => {
     loadStatistics();
   };
 
+  const handleCreateReport = async (params: CreateReportParams) => {
+    try {
+      setLoading(true);
+      const response = await reportsApi.createReport(params);
+
+      if (response.success) {
+        // Reload reports to show the new report
+        await loadReports();
+
+        // If generate_immediately is true, start generation
+        if (params.generate_immediately && response.data.report) {
+          const reportId = response.data.report.id;
+          setGeneratingReports(prev => new Set(prev).add(reportId));
+          setProgressModalReportId(reportId);
+
+          try {
+            const generateResponse = await reportsApi.generateReport(reportId);
+            if (!generateResponse.success) {
+              setError('Report created but failed to start generation');
+              setGeneratingReports(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(reportId);
+                return newSet;
+              });
+              setProgressModalReportId(null);
+            }
+          } catch (genErr) {
+            setError('Report created but failed to start generation: ' + (genErr as Error).message);
+            setGeneratingReports(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(reportId);
+              return newSet;
+            });
+            setProgressModalReportId(null);
+          }
+        }
+      } else {
+        setError('Failed to create report');
+      }
+    } catch (err) {
+      setError('Failed to create report: ' + (err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -144,6 +320,13 @@ const ReportsManager: React.FC = () => {
   };
 
   const getReportTypeLabel = (type: string) => {
+    if (reportConfig?.reportTypes) {
+      const typeConfig = reportConfig.reportTypes.find((t: any) => t.value === type);
+      if (typeConfig) {
+        return typeConfig.label.replace(' Summary', '').replace(' Report', '');
+      }
+    }
+    // Fallback to hardcoded values if config not loaded
     switch (type) {
       case 'EXECUTIVE': return 'Executive';
       case 'ANALYST': return 'Analyst';
@@ -286,10 +469,19 @@ const ReportsManager: React.FC = () => {
               className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Status</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="GENERATING">Generating</option>
-              <option value="PENDING">Pending</option>
-              <option value="FAILED">Failed</option>
+              {reportConfig?.reportStatuses?.map((status: any) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              )) || (
+                // Fallback options if config not loaded
+                <>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="GENERATING">Generating</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="FAILED">Failed</option>
+                </>
+              )}
             </select>
             <select
               value={typeFilter}
@@ -297,10 +489,19 @@ const ReportsManager: React.FC = () => {
               className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Types</option>
-              <option value="EXECUTIVE">Executive</option>
-              <option value="ANALYST">Analyst</option>
-              <option value="PRESENTATION">Presentation</option>
-              <option value="DASHBOARD_EXPORT">Dashboard</option>
+              {reportConfig?.reportTypes?.map((type: any) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              )) || (
+                // Fallback options if config not loaded
+                <>
+                  <option value="EXECUTIVE">Executive</option>
+                  <option value="ANALYST">Analyst</option>
+                  <option value="PRESENTATION">Presentation</option>
+                  <option value="DASHBOARD_EXPORT">Dashboard</option>
+                </>
+              )}
             </select>
             <button 
               onClick={() => setShowCreateModal(true)}
@@ -450,6 +651,14 @@ const ReportsManager: React.FC = () => {
           onComplete={handleProgressComplete}
         />
       )}
+
+      {/* Create Report Modal */}
+      <CreateReportModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateReport}
+        loading={loading}
+      />
     </div>
   );
 };

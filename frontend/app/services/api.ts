@@ -6,6 +6,7 @@
 import { API_CONFIG, API_ENDPOINTS } from '../config/dataConfig';
 import { tokenManager } from '../utils/tokenManager';
 import Logger from '../utils/logger';
+// mockApiService import removed - no longer using mock fallbacks
 
 
 class ApiService {
@@ -440,12 +441,10 @@ class ApiService {
    * @deprecated Use AuthContext instead
    */
   isAuthenticated(): boolean {
-    // For development, assume authenticated since we're using mock data
-    Logger.log('🔐 Using mock authentication status for development');
-    return true;
-    
-    // In production, this should be handled by AuthContext
-    // return authService.isAuthenticated();
+    // This should be handled by AuthContext in production
+    // For now, check if we have tokens available
+    const tokens = tokenManager.getTokens();
+    return tokens.access_token !== null;
   }
 
   /**
@@ -652,13 +651,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔧 Using mock pipelines data');
-        return await mockApiService.getPipelines();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.pipelines.list);
     } catch (error) {
-      Logger.warn('Failed to fetch pipelines from API, using mock data:', error);
-      return await mockApiService.getPipelines();
+      Logger.error('Failed to fetch pipelines from API:', error);
+      throw this.ensureError(error, 'Failed to fetch pipelines');
     }
   }
 
@@ -666,13 +664,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔧 Using mock pipeline creation');
-        return await mockApiService.createPipeline(pipelineData);
+        throw new Error('Backend API is not available');
       }
       return this.post(API_ENDPOINTS.pipelines.create, pipelineData);
     } catch (error) {
-      Logger.warn('Failed to create pipeline via API, using mock creation:', error);
-      return await mockApiService.createPipeline(pipelineData);
+      Logger.error('Failed to create pipeline via API:', error);
+      throw this.ensureError(error, 'Failed to create pipeline');
     }
   }
 
@@ -696,13 +693,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔧 Using mock pipeline executions data');
-        return await mockApiService.getPipelineExecutions(pipelineId);
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.pipelines.executions(pipelineId));
     } catch (error) {
-      Logger.warn('Failed to fetch pipeline executions from API, using mock data:', error);
-      return await mockApiService.getPipelineExecutions(pipelineId);
+      Logger.error('Failed to fetch pipeline executions from API:', error);
+      throw this.ensureError(error, 'Failed to fetch pipeline executions');
     }
   }
 
@@ -718,13 +714,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔌 Using mock connectors data');
-        return await mockApiService.getConnectors();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.connectors.list);
     } catch (error) {
-      Logger.warn('Failed to fetch connectors from API, using mock data:', error);
-      return await mockApiService.getConnectors();
+      Logger.error('Failed to fetch connectors from API:', error);
+      throw this.ensureError(error, 'Failed to fetch connectors');
     }
   }
 
@@ -732,13 +727,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔌 Using mock connector creation');
-        return await mockApiService.createConnector(connectorData);
+        throw new Error('Backend API is not available');
       }
       return this.post(API_ENDPOINTS.connectors.create, connectorData);
     } catch (error) {
-      Logger.warn('Failed to create connector via API, using mock creation:', error);
-      return await mockApiService.createConnector(connectorData);
+      Logger.error('Failed to create connector via API:', error);
+      throw this.ensureError(error, 'Failed to create connector');
     }
   }
 
@@ -788,13 +782,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock task metrics data');
-        return await mockApiService.getTaskMetrics();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.tasks.metrics);
     } catch (error) {
-      Logger.warn('Failed to fetch task metrics from API, using mock data:', error);
-      return await mockApiService.getTaskMetrics();
+      Logger.error('Failed to fetch task metrics from API:', error);
+      throw this.ensureError(error, 'Failed to fetch task metrics');
     }
   }
 
@@ -827,13 +820,182 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🏥 Using mock health status data');
-        return await mockApiService.getHealthStatus();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.health);
     } catch (error) {
-      Logger.warn('Failed to fetch health status from API, using mock data:', error);
-      return await mockApiService.getHealthStatus();
+      Logger.error('Failed to fetch health status from API:', error);
+      throw this.ensureError(error, 'Failed to fetch health status');
+    }
+  }
+
+  // ========================================
+  // REPORTS API METHODS
+  // ========================================
+
+  async getReports(params: any = {}): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+
+      // Clean up parameters to avoid sending undefined values
+      const cleanParams: Record<string, string> = {};
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          cleanParams[key] = String(value);
+        }
+      });
+
+      return this.get(API_ENDPOINTS.reports.list, cleanParams);
+    } catch (error) {
+      Logger.error('Failed to fetch reports from API:', error);
+      throw this.ensureError(error, 'Failed to fetch reports');
+    }
+  }
+
+  async getReportStatistics(days: number = 30): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+
+      const result = await this.get(API_ENDPOINTS.reports.statistics, { days: days.toString() });
+      return result;
+    } catch (error) {
+      Logger.error('Failed to fetch report statistics from API:', error);
+      throw this.ensureError(error, 'Failed to fetch report statistics');
+    }
+  }
+
+  async createReport(reportData: any): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.post(API_ENDPOINTS.reports.create, reportData);
+    } catch (error) {
+      Logger.error('Failed to create report via API:', error);
+      throw this.ensureError(error, 'Failed to create report');
+    }
+  }
+
+  async generateReport(reportId: string): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.post(API_ENDPOINTS.reports.generate(reportId));
+    } catch (error) {
+      Logger.error('Failed to generate report via API:', error);
+      throw this.ensureError(error, 'Failed to generate report');
+    }
+  }
+
+  async deleteReport(reportId: string): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.delete(API_ENDPOINTS.reports.delete(reportId));
+    } catch (error) {
+      Logger.error('Failed to delete report via API:', error);
+      throw this.ensureError(error, 'Failed to delete report');
+    }
+  }
+
+  // ========================================
+  // DATASETS API METHODS (for reports)
+  // ========================================
+
+  async getDatasets(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/datasets');
+    } catch (error) {
+      Logger.error('Failed to fetch datasets from API:', error);
+      throw this.ensureError(error, 'Failed to fetch datasets');
+    }
+  }
+
+  async getDataset(datasetId: string): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get(`/api/v1/datasets/${datasetId}`);
+    } catch (error) {
+      Logger.error('Failed to fetch dataset from API:', error);
+      throw this.ensureError(error, 'Failed to fetch dataset');
+    }
+  }
+
+  // ========================================
+  // REPORT CONFIGURATION API METHODS
+  // ========================================
+
+  async getReportConfig(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/config/reports');
+    } catch (error) {
+      Logger.error('Failed to fetch report config from API:', error);
+      throw this.ensureError(error, 'Failed to fetch report config');
+    }
+  }
+
+  // ========================================
+  // DASHBOARD CONFIGURATION API METHODS
+  // ========================================
+
+  async getDashboardConfig(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/config/dashboard');
+    } catch (error) {
+      Logger.error('Failed to fetch dashboard config from API:', error);
+      throw this.ensureError(error, 'Failed to fetch dashboard configuration');
+    }
+  }
+
+  async getDashboardStats(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/dashboard/quick-stats');
+    } catch (error) {
+      Logger.error('Failed to fetch dashboard stats from API:', error);
+      throw this.ensureError(error, 'Failed to fetch dashboard statistics');
+    }
+  }
+
+  async getSystemStatus(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/system/status');
+    } catch (error) {
+      Logger.error('Failed to fetch system status from API:', error);
+      throw this.ensureError(error, 'Failed to fetch system status');
     }
   }
 }
