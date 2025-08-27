@@ -31,15 +31,31 @@ async def check_database_health(db: AsyncSession) -> Dict[str, Any]:
         result = await db.execute(text("SELECT 1"))
         result.scalar()
         
-        # Get connection pool stats if available
+        # Get connection pool stats if available from the engine
         pool_status = {}
-        if hasattr(db.bind, 'pool'):
-            pool_status = {
-                "size": db.bind.pool.size(),
-                "checked_in": db.bind.pool.checkedin(),
-                "checked_out": db.bind.pool.checkedout(),
-                "overflow": db.bind.pool.overflow(),
-            }
+        try:
+            from app.core.database import engine
+            # Access the sync engine's pool through the async engine
+            if hasattr(engine, 'sync_engine') and hasattr(engine.sync_engine, 'pool'):
+                pool = engine.sync_engine.pool
+                # Check if pool has stats (QueuePool has them, NullPool doesn't)
+                if hasattr(pool, 'size'):
+                    pool_status = {
+                        "type": type(pool).__name__,
+                        "size": pool.size(),
+                        "checked_in": pool.checkedin(),
+                        "checked_out": pool.checkedout(),
+                        "overflow": pool.overflow(),
+                        "total": pool.size() + pool.overflow()
+                    }
+                else:
+                    # NullPool or other pool without detailed stats
+                    pool_status = {
+                        "type": type(pool).__name__,
+                        "note": "Pool doesn't maintain connection statistics"
+                    }
+        except Exception as pool_error:
+            logger.debug(f"Could not get pool status: {pool_error}")
         
         response_time = (time.time() - start_time) * 1000  # Convert to ms
         

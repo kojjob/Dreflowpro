@@ -5,7 +5,7 @@ Tests for health check endpoints.
 import pytest
 from httpx import AsyncClient
 from unittest.mock import patch, MagicMock
-from app.main import app
+from main import app
 
 
 @pytest.mark.asyncio

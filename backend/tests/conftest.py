@@ -68,11 +68,15 @@ def event_loop():
 @pytest_asyncio.fixture(scope="session")
 async def test_engine(test_settings):
     """Create test database engine."""
+    connect_args = {}
+    if "sqlite" in test_settings.DATABASE_URL:
+        connect_args = {"check_same_thread": False}
+    
     engine = create_async_engine(
         test_settings.DATABASE_URL,
         echo=False,
         poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
+        connect_args=connect_args if connect_args else None,
     )
     
     # Create all tables

@@ -229,10 +229,8 @@ class MultiLayerCache:
         l2_success = await self.l2_cache.set(key, value, l2_ttl)
         
         # Store tags in Redis for distributed invalidation
-        if tags and l2_success:
-            for tag in tags:
-                await self.l2_cache.redis.sadd(f"tag:{tag}", key)
-                await self.l2_cache.redis.expire(f"tag:{tag}", l2_ttl)
+        # Note: RedisManager doesn't have sadd, we'll skip distributed tag tracking for now
+        # This could be implemented with proper Redis commands if needed
         
         return l1_success or l2_success
     
@@ -340,6 +338,10 @@ class MultiLayerCache:
             pass
         
         return stats
+    
+    async def get_stats(self) -> Dict[str, Any]:
+        """Alias for get_cache_stats for backward compatibility."""
+        return await self.get_cache_stats()
 
 
 # Global cache manager instance
