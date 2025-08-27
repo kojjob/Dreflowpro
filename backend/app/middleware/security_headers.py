@@ -68,7 +68,7 @@ class SecurityHeadersMiddleware:
             "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
             "font-src": "'self' https://fonts.gstatic.com data:",
             "img-src": "'self' data: https: blob:",
-            "connect-src": "'self' https://api.dreflowpro.com wss://api.dreflowpro.com",
+            "connect-src": "'self' http://localhost:* ws://localhost:* https://api.dreflowpro.com wss://api.dreflowpro.com",
             "frame-ancestors": "'none'",
             "base-uri": "'self'",
             "form-action": "'self'",
