@@ -6,7 +6,7 @@
 import { API_CONFIG, API_ENDPOINTS } from '../config/dataConfig';
 import { tokenManager } from '../utils/tokenManager';
 import Logger from '../utils/logger';
-import { mockApiService } from './mockApi';
+// mockApiService import removed - no longer using mock fallbacks
 
 
 class ApiService {
@@ -441,12 +441,10 @@ class ApiService {
    * @deprecated Use AuthContext instead
    */
   isAuthenticated(): boolean {
-    // For development, assume authenticated since we're using mock data
-    Logger.log('🔐 Using mock authentication status for development');
-    return true;
-    
-    // In production, this should be handled by AuthContext
-    // return authService.isAuthenticated();
+    // This should be handled by AuthContext in production
+    // For now, check if we have tokens available
+    const tokens = tokenManager.getTokens();
+    return tokens.access_token !== null;
   }
 
   /**
@@ -653,13 +651,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔧 Using mock pipelines data');
-        return await mockApiService.getPipelines();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.pipelines.list);
     } catch (error) {
-      Logger.warn('Failed to fetch pipelines from API, using mock data:', error);
-      return await mockApiService.getPipelines();
+      Logger.error('Failed to fetch pipelines from API:', error);
+      throw this.ensureError(error, 'Failed to fetch pipelines');
     }
   }
 
@@ -667,13 +664,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔧 Using mock pipeline creation');
-        return await mockApiService.createPipeline(pipelineData);
+        throw new Error('Backend API is not available');
       }
       return this.post(API_ENDPOINTS.pipelines.create, pipelineData);
     } catch (error) {
-      Logger.warn('Failed to create pipeline via API, using mock creation:', error);
-      return await mockApiService.createPipeline(pipelineData);
+      Logger.error('Failed to create pipeline via API:', error);
+      throw this.ensureError(error, 'Failed to create pipeline');
     }
   }
 
@@ -697,13 +693,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔧 Using mock pipeline executions data');
-        return await mockApiService.getPipelineExecutions(pipelineId);
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.pipelines.executions(pipelineId));
     } catch (error) {
-      Logger.warn('Failed to fetch pipeline executions from API, using mock data:', error);
-      return await mockApiService.getPipelineExecutions(pipelineId);
+      Logger.error('Failed to fetch pipeline executions from API:', error);
+      throw this.ensureError(error, 'Failed to fetch pipeline executions');
     }
   }
 
@@ -719,13 +714,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔌 Using mock connectors data');
-        return await mockApiService.getConnectors();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.connectors.list);
     } catch (error) {
-      Logger.warn('Failed to fetch connectors from API, using mock data:', error);
-      return await mockApiService.getConnectors();
+      Logger.error('Failed to fetch connectors from API:', error);
+      throw this.ensureError(error, 'Failed to fetch connectors');
     }
   }
 
@@ -733,13 +727,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🔌 Using mock connector creation');
-        return await mockApiService.createConnector(connectorData);
+        throw new Error('Backend API is not available');
       }
       return this.post(API_ENDPOINTS.connectors.create, connectorData);
     } catch (error) {
-      Logger.warn('Failed to create connector via API, using mock creation:', error);
-      return await mockApiService.createConnector(connectorData);
+      Logger.error('Failed to create connector via API:', error);
+      throw this.ensureError(error, 'Failed to create connector');
     }
   }
 
@@ -789,13 +782,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock task metrics data');
-        return await mockApiService.getTaskMetrics();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.tasks.metrics);
     } catch (error) {
-      Logger.warn('Failed to fetch task metrics from API, using mock data:', error);
-      return await mockApiService.getTaskMetrics();
+      Logger.error('Failed to fetch task metrics from API:', error);
+      throw this.ensureError(error, 'Failed to fetch task metrics');
     }
   }
 
@@ -828,13 +820,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🏥 Using mock health status data');
-        return await mockApiService.getHealthStatus();
+        throw new Error('Backend API is not available');
       }
       return this.get(API_ENDPOINTS.health);
     } catch (error) {
-      Logger.warn('Failed to fetch health status from API, using mock data:', error);
-      return await mockApiService.getHealthStatus();
+      Logger.error('Failed to fetch health status from API:', error);
+      throw this.ensureError(error, 'Failed to fetch health status');
     }
   }
 
@@ -846,8 +837,7 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock reports data');
-        return await mockApiService.getReports(params);
+        throw new Error('Backend API is not available');
       }
 
       // Clean up parameters to avoid sending undefined values
@@ -858,24 +848,10 @@ class ApiService {
         }
       });
 
-      const result = await this.get(API_ENDPOINTS.reports.list, cleanParams);
-      return result;
+      return this.get(API_ENDPOINTS.reports.list, cleanParams);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-      // Check if it's an authentication error, validation error, or API not available
-      if (errorMessage.includes('Authentication failed') ||
-          errorMessage.includes('401') ||
-          errorMessage.includes('API endpoint not available') ||
-          errorMessage.includes('API is not available') ||
-          errorMessage.includes('Input should be') ||
-          errorMessage.includes('validation error')) {
-        Logger.log('📊 Authentication failed, validation error, or API unavailable, using mock reports data');
-        return await mockApiService.getReports(params);
-      }
-
-      Logger.warn('Failed to fetch reports from API, using mock data:', error);
-      return await mockApiService.getReports(params);
+      Logger.error('Failed to fetch reports from API:', error);
+      throw this.ensureError(error, 'Failed to fetch reports');
     }
   }
 
@@ -883,29 +859,14 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock report statistics data');
-        return await mockApiService.getReportStatistics(days);
+        throw new Error('Backend API is not available');
       }
 
       const result = await this.get(API_ENDPOINTS.reports.statistics, { days: days.toString() });
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-      // Check if it's an authentication error, validation error, or API not available
-      if (errorMessage.includes('Authentication failed') ||
-          errorMessage.includes('401') ||
-          errorMessage.includes('API endpoint not available') ||
-          errorMessage.includes('API is not available') ||
-          errorMessage.includes('Input should be') ||
-          errorMessage.includes('validation error') ||
-          errorMessage.includes('Detail:')) {
-        Logger.log('📊 Authentication failed, validation error, or API unavailable, using mock report statistics data');
-        return await mockApiService.getReportStatistics(days);
-      }
-
-      Logger.warn('Failed to fetch report statistics from API, using mock data:', error);
-      return await mockApiService.getReportStatistics(days);
+      Logger.error('Failed to fetch report statistics from API:', error);
+      throw this.ensureError(error, 'Failed to fetch report statistics');
     }
   }
 
@@ -913,13 +874,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock report creation');
-        return await mockApiService.createReport(reportData);
+        throw new Error('Backend API is not available');
       }
       return this.post(API_ENDPOINTS.reports.create, reportData);
     } catch (error) {
-      Logger.warn('Failed to create report via API, using mock creation:', error);
-      return await mockApiService.createReport(reportData);
+      Logger.error('Failed to create report via API:', error);
+      throw this.ensureError(error, 'Failed to create report');
     }
   }
 
@@ -927,13 +887,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock report generation');
-        return await mockApiService.generateReport(reportId);
+        throw new Error('Backend API is not available');
       }
       return this.post(API_ENDPOINTS.reports.generate(reportId));
     } catch (error) {
-      Logger.warn('Failed to generate report via API, using mock generation:', error);
-      return await mockApiService.generateReport(reportId);
+      Logger.error('Failed to generate report via API:', error);
+      throw this.ensureError(error, 'Failed to generate report');
     }
   }
 
@@ -941,13 +900,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('📊 Using mock report deletion');
-        return await mockApiService.deleteReport(reportId);
+        throw new Error('Backend API is not available');
       }
       return this.delete(API_ENDPOINTS.reports.delete(reportId));
     } catch (error) {
-      Logger.warn('Failed to delete report via API, using mock deletion:', error);
-      return await mockApiService.deleteReport(reportId);
+      Logger.error('Failed to delete report via API:', error);
+      throw this.ensureError(error, 'Failed to delete report');
     }
   }
 
@@ -959,13 +917,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🗃️ Using mock datasets data');
-        return await mockApiService.getDatasets();
+        throw new Error('Backend API is not available');
       }
       return this.get('/api/v1/datasets');
     } catch (error) {
-      Logger.warn('Failed to fetch datasets from API, using mock data:', error);
-      return await mockApiService.getDatasets();
+      Logger.error('Failed to fetch datasets from API:', error);
+      throw this.ensureError(error, 'Failed to fetch datasets');
     }
   }
 
@@ -973,13 +930,12 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('🗃️ Using mock dataset data');
-        return await mockApiService.getDataset(datasetId);
+        throw new Error('Backend API is not available');
       }
       return this.get(`/api/v1/datasets/${datasetId}`);
     } catch (error) {
-      Logger.warn('Failed to fetch dataset from API, using mock data:', error);
-      return await mockApiService.getDataset(datasetId);
+      Logger.error('Failed to fetch dataset from API:', error);
+      throw this.ensureError(error, 'Failed to fetch dataset');
     }
   }
 
@@ -991,13 +947,55 @@ class ApiService {
     try {
       const isAvailable = await this.checkApiAvailability();
       if (!isAvailable) {
-        Logger.log('⚙️ Using mock report config data');
-        return await mockApiService.getReportConfig();
+        throw new Error('Backend API is not available');
       }
       return this.get('/api/v1/config/reports');
     } catch (error) {
-      Logger.warn('Failed to fetch report config from API, using mock data:', error);
-      return await mockApiService.getReportConfig();
+      Logger.error('Failed to fetch report config from API:', error);
+      throw this.ensureError(error, 'Failed to fetch report config');
+    }
+  }
+
+  // ========================================
+  // DASHBOARD CONFIGURATION API METHODS
+  // ========================================
+
+  async getDashboardConfig(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/config/dashboard');
+    } catch (error) {
+      Logger.error('Failed to fetch dashboard config from API:', error);
+      throw this.ensureError(error, 'Failed to fetch dashboard configuration');
+    }
+  }
+
+  async getDashboardStats(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/dashboard/quick-stats');
+    } catch (error) {
+      Logger.error('Failed to fetch dashboard stats from API:', error);
+      throw this.ensureError(error, 'Failed to fetch dashboard statistics');
+    }
+  }
+
+  async getSystemStatus(): Promise<any> {
+    try {
+      const isAvailable = await this.checkApiAvailability();
+      if (!isAvailable) {
+        throw new Error('Backend API is not available');
+      }
+      return this.get('/api/v1/system/status');
+    } catch (error) {
+      Logger.error('Failed to fetch system status from API:', error);
+      throw this.ensureError(error, 'Failed to fetch system status');
     }
   }
 }

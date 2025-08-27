@@ -241,7 +241,6 @@ class ReportTemplate(Base):
     organization = relationship("Organization", back_populates="report_templates")
     branding_options = relationship("TemplateBrandingOptions", backref="template", cascade="all, delete-orphan")
     child_templates = relationship("ReportTemplate", remote_side=[parent_template_id])
-    reports = relationship("GeneratedReport", back_populates="template")
     
     def __repr__(self):
         return f"<ReportTemplate(id={self.id}, name='{self.name}', type={self.report_type.value})>"

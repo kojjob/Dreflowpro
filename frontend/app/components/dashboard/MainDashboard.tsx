@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Logger from '../../utils/logger';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
+import { apiService } from '../../services/api';
 
 import UserProfileDropdown from '../ui/UserProfileDropdown';
 import NotificationsDropdown from '../ui/NotificationsDropdown';
@@ -92,12 +93,22 @@ const MainDashboard: React.FC = () => {
   const [activeView, setActiveView] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [dashboardConfig, setDashboardConfig] = useState<any>(null);
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Memoize valid tabs for performance
   const validTabs = useMemo(() => [
     'overview', 'pipelines', 'connectors', 'data-analysis',
     'tasks', 'ai-insights', 'profile', 'preferences', 'billing', 'help'
   ], []);
+
+  // Load dynamic dashboard data
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
   // Handle URL parameters for direct navigation
   useEffect(() => {
@@ -111,6 +122,39 @@ const MainDashboard: React.FC = () => {
     }
   }, [searchParams, validTabs]);
 
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load all dashboard data in parallel
+      const [configResponse, statsResponse, statusResponse] = await Promise.all([
+        apiService.getDashboardConfig(),
+        apiService.getDashboardStats(),
+        apiService.getSystemStatus()
+      ]);
+
+      if (configResponse.success) {
+        setDashboardConfig(configResponse.data);
+      }
+
+      if (statsResponse.success) {
+        setDashboardStats(statsResponse.data);
+      }
+
+      if (statusResponse.success) {
+        setSystemStatus(statusResponse.data);
+      }
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
+      Logger.error('Failed to load dashboard data:', err);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Update time every minute for live dashboard feel - optimized
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -119,86 +163,106 @@ const MainDashboard: React.FC = () => {
 
   // Navigation is handled inline in the component for better performance
 
-  // Memoized navigation items for performance
-  const navigationItems: NavigationItem[] = useMemo(() => [
-    {
-      id: 'overview',
-      name: 'Overview',
-      icon: Home,
-      component: DashboardStats,
-      description: 'System health and key metrics'
-    },
-    {
-      id: 'pipelines',
-      name: 'Pipelines',
-      icon: Zap,
-      component: PipelineManager,
-      description: 'ETL pipeline management and execution'
-    },
-    {
-      id: 'connectors',
-      name: 'Connectors',
-      icon: Database,
-      component: ConnectorManager,
-      description: 'Data source connections and configuration'
-    },
-    {
-      id: 'data-analysis',
-      name: 'Data Analysis',
-      icon: Brain,
-      component: DataAnalysisWorkflow,
-      description: 'Upload, analyze, and visualize data with AI insights'
-    },
-    {
-      id: 'tasks',
-      name: 'Tasks',
-      icon: CheckSquare,
-      component: TaskMonitor,
-      description: 'Background task monitoring and management'
-    },
-    {
-      id: 'reports',
-      name: 'Reports',
-      icon: Sparkles,
-      component: ReportsManager,
-      description: 'Generate and view analytical reports'
-    },
-    {
-      id: 'ai-insights',
-      name: 'AI Insights',
-      icon: Brain,
-      component: AIInsightsManager,
-      description: 'AI-powered data insights and recommendations'
-    },
-    {
-      id: 'profile',
-      name: 'Profile Settings',
-      icon: User,
-      component: ProfileSettings,
-      description: 'Manage your account information and security settings'
-    },
-    {
-      id: 'preferences',
-      name: 'Preferences',
-      icon: Settings,
-      component: Preferences,
-      description: 'Customize your DreflowPro experience'
-    },
-    {
-      id: 'billing',
-      name: 'Billing & Subscription',
-      icon: CreditCard,
-      component: BillingSubscription,
-      description: 'Manage your subscription and billing information'
-    },
-    {
-      id: 'help',
-      name: 'Help & Support',
-      icon: HelpCircle,
-      component: HelpSupport,
-      description: 'Get help, find answers, and connect with our support team'
+  // Dynamic navigation items from configuration
+  const navigationItems: NavigationItem[] = useMemo(() => {
+    // Default navigation structure
+    const defaultItems = [
+      {
+        id: 'overview',
+        name: 'Overview',
+        icon: Home,
+        component: DashboardStats,
+        description: 'System health and key metrics'
+      },
+      {
+        id: 'pipelines',
+        name: 'Pipelines',
+        icon: Zap,
+        component: PipelineManager,
+        description: 'ETL pipeline management and execution'
+      },
+      {
+        id: 'connectors',
+        name: 'Connectors',
+        icon: Database,
+        component: ConnectorManager,
+        description: 'Data source connections and configuration'
+      },
+      {
+        id: 'data-analysis',
+        name: 'Data Analysis',
+        icon: Brain,
+        component: DataAnalysisWorkflow,
+        description: 'Upload, analyze, and visualize data with AI insights'
+      },
+      {
+        id: 'tasks',
+        name: 'Tasks',
+        icon: CheckSquare,
+        component: TaskMonitor,
+        description: 'Background task monitoring and management'
+      },
+      {
+        id: 'reports',
+        name: 'Reports',
+        icon: Sparkles,
+        component: ReportsManager,
+        description: 'Generate and view analytical reports'
+      },
+      {
+        id: 'ai-insights',
+        name: 'AI Insights',
+        icon: Brain,
+        component: AIInsightsManager,
+        description: 'AI-powered data insights and recommendations'
+      },
+      {
+        id: 'profile',
+        name: 'Profile Settings',
+        icon: User,
+        component: ProfileSettings,
+        description: 'Manage your account information and security settings'
+      },
+      {
+        id: 'preferences',
+        name: 'Preferences',
+        icon: Settings,
+        component: Preferences,
+        description: 'Customize your DreflowPro experience'
+      },
+      {
+        id: 'billing',
+        name: 'Billing & Subscription',
+        icon: CreditCard,
+        component: BillingSubscription,
+        description: 'Manage your subscription and billing information'
+      },
+      {
+        id: 'help',
+        name: 'Help & Support',
+        icon: HelpCircle,
+        component: HelpSupport,
+        description: 'Get help, find answers, and connect with our support team'
+      }
+    ];
+
+    // Override with dynamic config if available
+    if (dashboardConfig?.navigation) {
+      return defaultItems.map(item => {
+        const configItem = dashboardConfig.navigation.find((navItem: any) => navItem.id === item.id);
+        if (configItem) {
+          return {
+            ...item,
+            name: configItem.name || item.name,
+            description: configItem.description || item.description
+          };
+        }
+        return item;
+      });
     }
-  ], []);
+
+    return defaultItems;
+  }, [dashboardConfig]);
 
   const currentItem = navigationItems.find(item => item.id === activeView) || navigationItems[0];
   const CurrentComponent = currentItem.component;
@@ -214,8 +278,12 @@ const MainDashboard: React.FC = () => {
               <Sparkles className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h1 className="font-bold text-xl text-white">DreflowPro</h1>
-              <p className="text-blue-100 text-xs">Data Analytics Platform</p>
+              <h1 className="font-bold text-xl text-white">
+                {dashboardConfig?.branding?.app_name || 'DreflowPro'}
+              </h1>
+              <p className="text-blue-100 text-xs">
+                {dashboardConfig?.branding?.tagline || 'Data Analytics Platform'}
+              </p>
             </div>
           </div>
           <button
@@ -227,11 +295,31 @@ const MainDashboard: React.FC = () => {
         </div>
 
         {/* Live Status Bar */}
-        <div className={`${!sidebarOpen && 'hidden'} px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200/50`}>
+        <div className={`${!sidebarOpen && 'hidden'} px-6 py-4 ${
+          systemStatus?.status === 'healthy' 
+            ? 'bg-gradient-to-r from-green-50 to-emerald-50' 
+            : systemStatus?.status === 'degraded'
+            ? 'bg-gradient-to-r from-yellow-50 to-orange-50'
+            : 'bg-gradient-to-r from-red-50 to-pink-50'
+        } border-b border-gray-200/50`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-green-700">System Online</span>
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                systemStatus?.status === 'healthy' 
+                  ? 'bg-green-500' 
+                  : systemStatus?.status === 'degraded'
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
+              }`}></div>
+              <span className={`text-sm font-medium ${
+                systemStatus?.status === 'healthy' 
+                  ? 'text-green-700' 
+                  : systemStatus?.status === 'degraded'
+                  ? 'text-yellow-700'
+                  : 'text-red-700'
+              }`}>
+                {systemStatus?.message || 'Connecting...'}
+              </span>
             </div>
             <div className="text-xs text-gray-500">
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -281,8 +369,8 @@ const MainDashboard: React.FC = () => {
           })}
         </nav>
 
-        {/* Quick Stats in Sidebar */}
-        {sidebarOpen && (
+        {/* Dynamic Quick Stats in Sidebar */}
+        {sidebarOpen && dashboardStats && (
           <div className="absolute bottom-6 left-3 right-3">
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200/50">
               <div className="flex items-center justify-between mb-2">
@@ -291,12 +379,38 @@ const MainDashboard: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="text-center">
-                  <div className="font-bold text-purple-600">12</div>
+                  <div className="font-bold text-purple-600">
+                    {dashboardStats.active_pipelines || 0}
+                  </div>
                   <div className="text-purple-500">Pipelines</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-bold text-purple-600">98%</div>
+                  <div className="font-bold text-purple-600">
+                    {dashboardStats.system_uptime ? `${Math.round(dashboardStats.system_uptime)}%` : '0%'}
+                  </div>
                   <div className="text-purple-500">Uptime</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading state for quick stats */}
+        {sidebarOpen && loading && (
+          <div className="absolute bottom-6 left-3 right-3">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200/50">
+              <div className="flex items-center justify-between mb-2">
+                <div className="h-4 bg-gray-300 rounded animate-pulse w-20"></div>
+                <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="text-center">
+                  <div className="h-5 bg-gray-300 rounded animate-pulse mb-1 w-8 mx-auto"></div>
+                  <div className="h-3 bg-gray-300 rounded animate-pulse w-12 mx-auto"></div>
+                </div>
+                <div className="text-center">
+                  <div className="h-5 bg-gray-300 rounded animate-pulse mb-1 w-8 mx-auto"></div>
+                  <div className="h-3 bg-gray-300 rounded animate-pulse w-10 mx-auto"></div>
                 </div>
               </div>
             </div>
@@ -325,9 +439,29 @@ const MainDashboard: React.FC = () => {
             <div className="flex items-center space-x-2 lg:space-x-4 flex-shrink-0">
               {/* Status Indicators - Hidden on mobile */}
               <div className="hidden lg:flex items-center space-x-4">
-                <div className="flex items-center space-x-2 bg-green-50 px-3 py-2 rounded-lg">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-green-700">Online</span>
+                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                  systemStatus?.status === 'healthy' 
+                    ? 'bg-green-50' 
+                    : systemStatus?.status === 'degraded'
+                    ? 'bg-yellow-50'
+                    : 'bg-red-50'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${
+                    systemStatus?.status === 'healthy' 
+                      ? 'bg-green-500' 
+                      : systemStatus?.status === 'degraded'
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
+                  }`}></div>
+                  <span className={`text-sm font-medium ${
+                    systemStatus?.status === 'healthy' 
+                      ? 'text-green-700' 
+                      : systemStatus?.status === 'degraded'
+                      ? 'text-yellow-700'
+                      : 'text-red-700'
+                  }`}>
+                    {systemStatus?.message || 'Connecting...'}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-lg">
                   <Clock className="w-4 h-4 text-blue-600" />
@@ -359,8 +493,23 @@ const MainDashboard: React.FC = () => {
             {/* Mobile Status Indicators */}
             <div className="flex lg:hidden items-center space-x-3">
               <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-green-700">Online</span>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  systemStatus?.status === 'healthy' 
+                    ? 'bg-green-500' 
+                    : systemStatus?.status === 'degraded'
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                }`}></div>
+                <span className={`text-xs ${
+                  systemStatus?.status === 'healthy' 
+                    ? 'text-green-700' 
+                    : systemStatus?.status === 'degraded'
+                    ? 'text-yellow-700'
+                    : 'text-red-700'
+                }`}>
+                  {systemStatus?.status === 'healthy' ? 'Online' : 
+                   systemStatus?.status === 'degraded' ? 'Degraded' : 'Offline'}
+                </span>
               </div>
               <span className="text-xs text-gray-500">
                 {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -372,6 +521,27 @@ const MainDashboard: React.FC = () => {
         {/* Enhanced Content Area */}
         <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50/50 to-blue-50/30">
           <div className="p-8">
+            {/* Error State */}
+            {error && (
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-sm font-bold">!</span>
+                  </div>
+                  <div>
+                    <h3 className="text-red-800 font-semibold">Dashboard Configuration Error</h3>
+                    <p className="text-red-600 text-sm mt-1">{error}</p>
+                    <button 
+                      onClick={loadDashboardData}
+                      className="mt-2 text-red-700 underline hover:text-red-800 text-sm font-medium"
+                    >
+                      Retry Loading
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
               <CurrentComponent />
             </div>

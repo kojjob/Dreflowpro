@@ -2,7 +2,7 @@
 Dashboard API endpoints for overview statistics and metrics.
 """
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,9 +13,9 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.pipeline import ETLPipeline, PipelineExecution, PipelineStatus, ExecutionStatus
-from app.models.connector import DataConnector
+from app.models.connector import DataConnector, ConnectorStatus
 from app.models.report import GeneratedReport, ReportStatus
-from app.schemas.dashboard import DashboardStats
+from app.schemas.dashboard import DashboardStats, PipelineStats, ConnectorStats, TaskStats, SystemStats, ActivityItem
 import logging
 
 logger = logging.getLogger(__name__)
@@ -67,22 +67,43 @@ async def get_dashboard_stats(
         # Get report statistics
         report_stats = await _get_report_stats(db, org_id, start_date)
         
-        # Calculate overall health score
-        health_score = _calculate_health_score(execution_stats, connector_stats)
+        # Get task statistics
+        task_stats = await _get_task_stats(db, org_id, start_date)
+        
+        # Get system statistics
+        system_stats = await _get_system_stats()
+        
+        # Get recent activity
+        activity_items = await _get_recent_activity(db, org_id)
         
         return DashboardStats(
-            total_pipelines=pipeline_stats["total"],
-            active_pipelines=pipeline_stats["active"],
-            total_executions=execution_stats["total"],
-            successful_executions=execution_stats["successful"],
-            failed_executions=execution_stats["failed"],
-            success_rate=execution_stats["success_rate"],
-            total_connectors=connector_stats["total"],
-            active_connectors=connector_stats["active"],
-            total_reports=report_stats["total"],
-            completed_reports=report_stats["completed"],
-            health_score=health_score,
-            last_updated=datetime.utcnow()
+            pipelines=PipelineStats(
+                total=pipeline_stats["total"],
+                active=pipeline_stats["active"],
+                running=execution_stats.get("running", 0),
+                failed=execution_stats["failed"],
+                scheduled=pipeline_stats.get("scheduled", 0)
+            ),
+            connectors=ConnectorStats(
+                total=connector_stats["total"],
+                connected=connector_stats["active"],
+                disconnected=connector_stats["total"] - connector_stats["active"],
+                error=0  # TODO: Implement error state tracking
+            ),
+            tasks=TaskStats(
+                total=task_stats["total"],
+                completed=task_stats["completed"],
+                running=task_stats.get("running", 0),
+                failed=task_stats.get("failed", 0),
+                pending=task_stats.get("pending", 0)
+            ),
+            system=SystemStats(
+                cpu_usage=system_stats["cpu_usage"],
+                memory_usage=system_stats["memory_usage"],
+                disk_usage=system_stats["disk_usage"],
+                uptime=system_stats["uptime"]
+            ),
+            recent_activity=activity_items
         )
         
     except Exception as e:
@@ -183,13 +204,13 @@ async def _get_connector_stats(db: AsyncSession, org_id: str) -> Dict[str, Any]:
     )
     total = total_result.scalar() or 0
     
-    # Active connectors (assuming is_active field exists)
+    # Active connectors
     active_result = await db.execute(
         select(func.count(DataConnector.id))
         .where(
             and_(
                 DataConnector.organization_id == org_id,
-                DataConnector.is_active == True
+                DataConnector.status == ConnectorStatus.ACTIVE
             )
         )
     )
@@ -233,6 +254,79 @@ async def _get_report_stats(db: AsyncSession, org_id: str, start_date: datetime)
         "total": total,
         "completed": completed
     }
+
+
+async def _get_task_stats(db: AsyncSession, org_id: str, start_date: datetime) -> Dict[str, Any]:
+    """Get task/background job statistics."""
+    # For now, return mock data as we don't have a task tracking system yet
+    return {
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "failed": 0,
+        "pending": 0
+    }
+
+
+async def _get_system_stats() -> Dict[str, Any]:
+    """Get system performance statistics."""
+    import psutil
+    import time
+    
+    # Get system metrics
+    cpu_usage = psutil.cpu_percent()
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    boot_time = psutil.boot_time()
+    uptime = int(time.time() - boot_time)
+    
+    return {
+        "cpu_usage": round(cpu_usage, 1),
+        "memory_usage": round(memory.percent, 1),
+        "disk_usage": round(disk.percent, 1),
+        "uptime": uptime
+    }
+
+
+async def _get_recent_activity(db: AsyncSession, org_id: str) -> List[ActivityItem]:
+    """Get recent activity items."""
+    # For now, return sample activity data
+    # In a real implementation, this would fetch from an activity log table
+    import uuid
+    
+    activities = []
+    
+    # Add some recent pipeline executions as activities
+    recent_executions = await db.execute(
+        select(PipelineExecution, ETLPipeline.name)
+        .join(ETLPipeline)
+        .where(
+            and_(
+                ETLPipeline.organization_id == org_id,
+                PipelineExecution.started_at >= datetime.utcnow() - timedelta(hours=24)
+            )
+        )
+        .order_by(PipelineExecution.started_at.desc())
+        .limit(5)
+    )
+    
+    for execution, pipeline_name in recent_executions:
+        status_map = {
+            ExecutionStatus.COMPLETED: "success",
+            ExecutionStatus.FAILED: "error",
+            ExecutionStatus.RUNNING: "info",
+            ExecutionStatus.PENDING: "warning"
+        }
+        
+        activities.append(ActivityItem(
+            id=str(execution.id),
+            type="pipeline_execution",
+            message=f"Pipeline '{pipeline_name}' {execution.status.value}",
+            timestamp=execution.started_at.isoformat(),
+            status=status_map.get(execution.status, "info")
+        ))
+    
+    return activities
 
 
 def _calculate_health_score(execution_stats: Dict[str, Any], connector_stats: Dict[str, Any]) -> float:
@@ -281,5 +375,76 @@ async def get_dashboard_health(
             "status": "unhealthy",
             "database": "error",
             "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+
+@router.get("/quick-stats")
+async def get_quick_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get quick dashboard statistics for overview cards."""
+    
+    try:
+        org_id = current_user.organization_id
+        
+        # Quick pipeline count
+        pipeline_result = await db.execute(
+            select(func.count(ETLPipeline.id))
+            .where(ETLPipeline.organization_id == org_id)
+        )
+        total_pipelines = pipeline_result.scalar() or 0
+        
+        # Quick execution count (last 24h)
+        start_date = datetime.utcnow() - timedelta(days=1)
+        execution_result = await db.execute(
+            select(func.count(PipelineExecution.id))
+            .join(ETLPipeline)
+            .where(
+                and_(
+                    ETLPipeline.organization_id == org_id,
+                    PipelineExecution.started_at >= start_date
+                )
+            )
+        )
+        recent_executions = execution_result.scalar() or 0
+        
+        # Quick connector count
+        connector_result = await db.execute(
+            select(func.count(DataConnector.id))
+            .where(DataConnector.organization_id == org_id)
+        )
+        total_connectors = connector_result.scalar() or 0
+        
+        # Quick report count (last 7 days)
+        report_start = datetime.utcnow() - timedelta(days=7)
+        report_result = await db.execute(
+            select(func.count(GeneratedReport.id))
+            .where(
+                and_(
+                    GeneratedReport.organization_id == org_id,
+                    GeneratedReport.created_at >= report_start
+                )
+            )
+        )
+        recent_reports = report_result.scalar() or 0
+        
+        return {
+            "total_pipelines": total_pipelines,
+            "recent_executions": recent_executions,
+            "total_connectors": total_connectors,
+            "recent_reports": recent_reports,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get quick stats: {e}")
+        return {
+            "total_pipelines": 0,
+            "recent_executions": 0,
+            "total_connectors": 0,
+            "recent_reports": 0,
+            "error": "Failed to retrieve quick statistics",
             "timestamp": datetime.utcnow().isoformat()
         }

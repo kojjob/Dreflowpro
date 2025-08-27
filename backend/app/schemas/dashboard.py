@@ -6,32 +6,57 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
+class PipelineStats(BaseModel):
+    """Pipeline statistics."""
+    total: int = Field(..., description="Total number of pipelines")
+    active: int = Field(..., description="Number of active pipelines")
+    running: int = Field(..., description="Number of running pipelines")
+    failed: int = Field(..., description="Number of failed pipelines")
+    scheduled: int = Field(..., description="Number of scheduled pipelines")
+
+
+class ConnectorStats(BaseModel):
+    """Connector statistics."""
+    total: int = Field(..., description="Total number of connectors")
+    connected: int = Field(..., description="Number of connected connectors")
+    disconnected: int = Field(..., description="Number of disconnected connectors")
+    error: int = Field(..., description="Number of connectors in error state")
+
+
+class TaskStats(BaseModel):
+    """Task statistics."""
+    total: int = Field(..., description="Total number of tasks")
+    completed: int = Field(..., description="Number of completed tasks")
+    running: int = Field(..., description="Number of running tasks")
+    failed: int = Field(..., description="Number of failed tasks")
+    pending: int = Field(..., description="Number of pending tasks")
+
+
+class SystemStats(BaseModel):
+    """System statistics."""
+    cpu_usage: float = Field(..., description="CPU usage percentage")
+    memory_usage: float = Field(..., description="Memory usage percentage")
+    disk_usage: float = Field(..., description="Disk usage percentage")
+    uptime: int = Field(..., description="System uptime in seconds")
+
+
+class ActivityItem(BaseModel):
+    """Recent activity item."""
+    id: str = Field(..., description="Activity item ID")
+    type: str = Field(..., description="Activity type")
+    message: str = Field(..., description="Activity message")
+    timestamp: str = Field(..., description="Activity timestamp")
+    status: str = Field(..., description="Activity status")
+
+
 class DashboardStats(BaseModel):
     """Dashboard statistics response model."""
     
-    # Pipeline metrics
-    total_pipelines: int = Field(..., description="Total number of pipelines")
-    active_pipelines: int = Field(..., description="Number of active pipelines")
-    
-    # Execution metrics
-    total_executions: int = Field(..., description="Total executions in time period")
-    successful_executions: int = Field(..., description="Number of successful executions")
-    failed_executions: int = Field(..., description="Number of failed executions")
-    success_rate: float = Field(..., description="Execution success rate percentage")
-    
-    # Connector metrics
-    total_connectors: int = Field(..., description="Total number of data connectors")
-    active_connectors: int = Field(..., description="Number of active connectors")
-    
-    # Report metrics
-    total_reports: int = Field(..., description="Total reports generated in time period")
-    completed_reports: int = Field(..., description="Number of completed reports")
-    
-    # System health
-    health_score: float = Field(..., description="Overall system health score (0-100)")
-    
-    # Metadata
-    last_updated: datetime = Field(..., description="When these stats were last calculated")
+    pipelines: PipelineStats = Field(..., description="Pipeline statistics")
+    connectors: ConnectorStats = Field(..., description="Connector statistics")
+    tasks: TaskStats = Field(..., description="Task statistics")
+    system: SystemStats = Field(..., description="System statistics")
+    recent_activity: List[ActivityItem] = Field(..., description="Recent activity items")
     
     class Config:
         json_encoders = {
