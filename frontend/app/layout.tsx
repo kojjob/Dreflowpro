@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { GlobalErrorBoundary, AuthErrorBoundary } from "./components/error-boundaries";
 import { OfflineIndicator } from "./components/ui";
 import { ClientProviders } from "./components/providers/ClientProviders";
@@ -150,18 +151,20 @@ export default function RootLayout({
       >
         <GlobalErrorBoundary>
           <AuthErrorBoundary>
-            <AuthProvider>
-              <GoogleAnalytics />
-              {children}
-              <OfflineIndicator />
-              <Toaster
-                position="top-right"
-                expand={false}
-                richColors
-                closeButton
-              />
-              <ClientProviders />
-            </AuthProvider>
+            <ThemeProvider>
+              <AuthProvider>
+                <GoogleAnalytics />
+                {children}
+                <OfflineIndicator />
+                <Toaster
+                  position="top-right"
+                  expand={false}
+                  richColors
+                  closeButton
+                />
+                <ClientProviders />
+              </AuthProvider>
+            </ThemeProvider>
           </AuthErrorBoundary>
         </GlobalErrorBoundary>
       </body>

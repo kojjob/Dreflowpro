@@ -127,29 +127,48 @@ const MainDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Load all dashboard data in parallel
-      const [configResponse, statsResponse, statusResponse] = await Promise.all([
+      // Check if user is authenticated before trying to load dashboard data
+      if (!user) {
+        Logger.log('User not authenticated, skipping dashboard data load');
+        setLoading(false);
+        return;
+      }
+
+      // Load all dashboard data in parallel, but handle failures gracefully
+      const results = await Promise.allSettled([
         apiService.getDashboardConfig(),
         apiService.getDashboardStats(),
         apiService.getSystemStatus()
       ]);
 
-      if (configResponse.success) {
-        setDashboardConfig(configResponse.data);
+      // Handle config response
+      if (results[0].status === 'fulfilled' && results[0].value.success) {
+        setDashboardConfig(results[0].value.data);
+      } else if (results[0].status === 'rejected') {
+        Logger.warn('Failed to load dashboard config:', results[0].reason);
       }
 
-      if (statsResponse.success) {
-        setDashboardStats(statsResponse.data);
+      // Handle stats response
+      if (results[1].status === 'fulfilled' && results[1].value.success) {
+        setDashboardStats(results[1].value.data);
+      } else if (results[1].status === 'rejected') {
+        Logger.warn('Failed to load dashboard stats:', results[1].reason);
       }
 
-      if (statusResponse.success) {
-        setSystemStatus(statusResponse.data);
+      // Handle status response
+      if (results[2].status === 'fulfilled' && results[2].value.success) {
+        setSystemStatus(results[2].value.data);
+      } else if (results[2].status === 'rejected') {
+        Logger.warn('Failed to load system status:', results[2].reason);
       }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
       Logger.error('Failed to load dashboard data:', err);
-      setError(errorMessage);
+      // Don't show error for API unavailability, just log it
+      if (!errorMessage.includes('API is not available')) {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

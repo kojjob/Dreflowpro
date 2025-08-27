@@ -98,10 +98,10 @@ export default function SignupPage() {
         {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gray-300" />
+            <span className="w-full border-t border-gray-300 dark:border-gray-600" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-4 text-gray-500">Or create with email</span>
+            <span className="bg-white dark:bg-gray-800 px-4 text-gray-500 dark:text-gray-400">Or create with email</span>
           </div>
         </div>
 
@@ -123,7 +123,7 @@ export default function SignupPage() {
           {/* Name Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 First name
               </label>
               <div className="relative">
@@ -144,7 +144,7 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 Last name
               </label>
               <div className="relative">
@@ -167,7 +167,7 @@ export default function SignupPage() {
 
           {/* Email */}
           <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
               Email address
             </label>
             <div className="relative">
@@ -189,8 +189,8 @@ export default function SignupPage() {
 
           {/* Organization */}
           <div className="space-y-2">
-            <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700">
-              Organization <span className="text-gray-400">(optional)</span>
+            <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Organization <span className="text-gray-400 dark:text-gray-500">(optional)</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -208,7 +208,7 @@ export default function SignupPage() {
 
           {/* Password */}
           <div className="space-y-2">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
               Password
             </label>
             <div className="relative">
@@ -242,7 +242,7 @@ export default function SignupPage() {
 
           {/* Confirm Password */}
           <div className="space-y-2">
-            <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
               Confirm password
             </label>
             <div className="relative">
@@ -294,11 +294,11 @@ export default function SignupPage() {
 
         {/* Sign in link */}
         <div className="text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+              className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
             >
               Sign in instead
             </Link>

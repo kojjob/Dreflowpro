@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { motion } from "framer-motion"
+import { motion, useScroll, useTransform } from "framer-motion"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
+import ThemeToggle from "./components/ThemeToggle"
 import { 
   ArrowRight, 
   Database, 
@@ -34,11 +35,58 @@ import {
   Layers,
   Target,
   Award,
-  Lightbulb
+  Lightbulb,
+  BrainCircuit,
+  LineChart,
+  MessageSquare,
+  AlertTriangle,
+  Cpu,
+  Network,
+  Lock,
+  Rocket,
+  Calculator,
+  ChevronRight,
+  Activity,
+  DollarSign,
+  Package,
+  Server,
+  Cloud,
+  Code2,
+  Gauge,
+  Search,
+  Filter,
+  RefreshCw,
+  Settings,
+  Download,
+  Upload,
+  Share2,
+  TrendingDown,
+  BarChart,
+  Bot,
+  Microscope,
+  Wand2,
+  Zap as Lightning,
+  CheckCircle2,
+  XCircle,
+  ArrowUpRight,
+  ExternalLink,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Users2,
+  Briefcase,
+  Plus
 } from "lucide-react"
 
 export default function Home() {
   const router = useRouter()
+  const [activeTestimonial, setActiveTestimonial] = useState(0)
+  const [dataProcessed, setDataProcessed] = useState(2500000)
+  const [pipelinesCreated, setPipelinesCreated] = useState(15000)
+  const [timeSaved, setTimeSaved] = useState(120000)
+  const { scrollYProgress } = useScroll()
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.3])
 
   useEffect(() => {
     // Check if user is already logged in
@@ -48,65 +96,407 @@ export default function Home() {
       // If user is logged in, redirect to dashboard
       router.push('/dashboard')
     }
+
+    // Animate counters
+    const interval = setInterval(() => {
+      setDataProcessed(prev => prev + Math.floor(Math.random() * 1000))
+      setPipelinesCreated(prev => prev + Math.floor(Math.random() * 5))
+      setTimeSaved(prev => prev + Math.floor(Math.random() * 10))
+    }, 3000)
+
+    return () => clearInterval(interval)
   }, [router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-brand-50 to-brand-100">
+    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-200">
+      {/* Fixed Theme Toggle Button */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="pt-12 sm:pt-16 lg:pt-20 pb-16 sm:pb-24 lg:pb-32 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-4xl mx-auto">
+      {/* Professional Hero Section */}
+      <motion.section 
+        className="relative min-h-[85vh] flex items-center pt-20 pb-16 overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
+        {/* Subtle Grid Background */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-900"
+          style={{ opacity }}
+        >
+          <div className="absolute inset-0 opacity-50 dark:opacity-20" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='gray' stroke-width='0.5' opacity='0.1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)'/%3E%3C/svg%3E")`,
+            backgroundSize: '60px 60px'
+          }}></div>
+        </motion.div>
+        
+        {/* Professional Gradient Overlay */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-100 to-transparent dark:from-blue-900/20 dark:to-transparent rounded-full blur-3xl opacity-60"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-emerald-100 to-transparent dark:from-emerald-900/20 dark:to-transparent rounded-full blur-3xl opacity-60"></div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+
+          {/* Main Content Grid */}
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Content */}
+            <div className="text-left">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                {/* Enterprise Badge */}
+                <div className="inline-flex items-center px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 mb-6">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse mr-2"></div>
+                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wide">Enterprise-Grade Data Platform</span>
+                </div>
+              
+                {/* Professional Headline */}
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight mb-6">
+                  Transform Your Data Into
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-600 block sm:inline"> Strategic Decisions</span>
+                </h1>
+              
+                {/* Professional Description */}
+                <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 leading-relaxed mb-8">
+                  Enterprise-grade ETL/ELT platform that unifies your data ecosystem. 
+                  Connect, transform, and analyze data from 50+ sources with AI-powered automation—no coding required.
+                </p>
+                
+                {/* Key Benefits List */}
+                <div className="space-y-3 mb-8">
+                  <div className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">Deploy in minutes, not months—with zero infrastructure setup</span>
+                  </div>
+                  <div className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">AI-driven insights from GPT-4, Claude, and specialized models</span>
+                  </div>
+                  <div className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">Enterprise security with SOC2, GDPR, and HIPAA compliance</span>
+                  </div>
+                </div>
+
+                {/* Professional CTAs */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                  <Link 
+                    href="/signup"
+                    className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    Start Free Trial
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Link>
+                  <button className="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-semibold rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm hover:shadow-md transition-all duration-200">
+                    <PlayCircle className="w-5 h-5 mr-2" />
+                    Watch Demo
+                  </button>
+                </div>
+                
+                {/* Trust Metrics */}
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 mr-1.5" />
+                    <span>5,000+ Companies</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Star className="w-4 h-4 mr-1.5 text-yellow-500" />
+                    <span>4.9/5 Rating</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Shield className="w-4 h-4 mr-1.5 text-green-600" />
+                    <span>SOC2 Certified</span>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+              
+            {/* Right Column - Visual Dashboard Preview */}
+            <div className="relative hidden lg:block">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="relative"
+              >
+                {/* Dashboard Preview Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700">
+                  {/* Mini Dashboard Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Live Dashboard</span>
+                  </div>
+                  
+                  {/* Analytics Preview */}
+                  <div className="space-y-4">
+                    {/* Revenue Chart */}
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Revenue Analytics</span>
+                        <span className="text-xs text-emerald-600">+24%</span>
+                      </div>
+                      <div className="flex items-end space-x-2 h-20">
+                        <div className="w-8 bg-blue-200 dark:bg-blue-800 rounded-t" style={{height: '40%'}}></div>
+                        <div className="w-8 bg-blue-300 dark:bg-blue-700 rounded-t" style={{height: '60%'}}></div>
+                        <div className="w-8 bg-blue-400 dark:bg-blue-600 rounded-t" style={{height: '45%'}}></div>
+                        <div className="w-8 bg-emerald-400 dark:bg-emerald-600 rounded-t" style={{height: '80%'}}></div>
+                        <div className="w-8 bg-emerald-500 dark:bg-emerald-500 rounded-t" style={{height: '90%'}}></div>
+                        <div className="w-8 bg-emerald-600 dark:bg-emerald-400 rounded-t" style={{height: '75%'}}></div>
+                      </div>
+                    </div>
+                    
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Conversion Rate</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">3.4%</p>
+                      </div>
+                      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Avg. Order Value</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">$142</p>
+                      </div>
+                    </div>
+                    
+                    {/* Data Sources */}
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Connected Sources</span>
+                      <div className="flex -space-x-2">
+                        <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white dark:border-gray-800"></div>
+                        <div className="w-6 h-6 bg-green-600 rounded-full border-2 border-white dark:border-gray-800"></div>
+                        <div className="w-6 h-6 bg-purple-600 rounded-full border-2 border-white dark:border-gray-800"></div>
+                        <div className="w-6 h-6 bg-gray-400 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                          <span className="text-xs text-white">+5</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Floating Elements */}
+                <div className="absolute -top-4 -right-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                  Real-time Updates
+                </div>
+                <div className="absolute -bottom-4 -left-4 bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                  AI-Powered
+                </div>
+              </motion.div>
+            </div>
+          </div>
+              
+          {/* Enterprise Logos Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-700"
+          >
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-6 uppercase tracking-wider font-medium">Trusted by Industry Leaders</p>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-8 items-center opacity-60">
+              {['Microsoft', 'Google', 'Amazon', 'Salesforce', 'Oracle', 'SAP'].map((company, index) => (
+                <motion.div 
+                  key={company} 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.6 }}
+                  transition={{ delay: 0.9 + index * 0.1 }}
+                  className="flex items-center justify-center"
+                >
+                  <span className="text-gray-400 dark:text-gray-600 font-semibold text-base">{company}</span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      {/* AI-Powered Analytics Showcase Section */}
+      <section className="py-20 bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden transition-colors duration-200">
+        <div className="absolute inset-0 bg-grid-pattern opacity-5 dark:opacity-10"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="space-y-4 sm:space-y-6"
+              className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 to-emerald-100 dark:from-blue-900/30 dark:to-emerald-900/30 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 text-sm font-medium mb-6"
             >
-              <div className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-brand-50 to-brand-100 border border-brand-100 text-brand-700 text-xs sm:text-sm font-medium mb-4 sm:mb-6">
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                The Canva for Data Integration
+              <BrainCircuit className="w-4 h-4 mr-2" />
+              AI That Understands Your Business Context
+            </motion.div>
+            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+              AI-Powered Intelligence at Every Step
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+              Leverage cutting-edge AI from multiple providers to transform raw data into strategic insights that drive revenue growth.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* AI Feature 1: Smart Data Discovery */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl dark:shadow-gray-900/50 transition-all duration-300 border border-blue-100 dark:border-gray-700 group"
+            >
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Search className="w-8 h-8 text-white" />
               </div>
-              
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight px-4 sm:px-0">
-                Turn Your Data Into
-                <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent block">
-                  Actionable Insights
-                </span>
-              </h1>
-              
-              <p className="text-base sm:text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed px-4 sm:px-0">
-                The first AI-agnostic ETL/ELT platform designed for SMEs. Connect all your business tools, 
-                transform your data, and get beautiful reports in just 5 minutes. No technical expertise required.
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">AI-Guided Data Mapping</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Our AI automatically discovers relationships between your data sources, suggests optimal join keys, and identifies data quality issues before they impact your analysis.
               </p>
-              
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center pt-4 sm:pt-6 px-4 sm:px-0">
-                <Link 
-                  href="/signup"
-                  className="group bg-gradient-to-r from-brand-600 to-brand-400 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl font-semibold text-base sm:text-lg hover:shadow-2xl transition-all duration-300 flex items-center w-full sm:w-auto justify-center"
-                >
-                  Start Free Today
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <button className="flex items-center text-gray-600 hover:text-indigo-600 font-medium text-base sm:text-lg transition-colors">
-                  <PlayCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
-                  Watch Demo
-                </button>
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center text-blue-700 font-semibold mb-2">
+                  <TrendingUp className="w-5 h-5 mr-2" />
+                  Business Impact
+                </div>
+                <p className="text-sm text-blue-600">Save 10+ hours per week on data preparation</p>
               </div>
-              
-              <div className="flex items-center justify-center text-xs sm:text-sm text-gray-500 pt-4 sm:pt-6">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-green-500" />
-                Free forever • 2 pipelines • 10K records/month
+            </motion.div>
+
+            {/* AI Feature 2: Predictive Analytics */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-emerald-100 group"
+            >
+              <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <LineChart className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Predictive Analytics Engine</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Built-in ML models for sales forecasting, churn prediction, and inventory optimization. No data science degree required—just results.
+              </p>
+              <div className="bg-emerald-50 rounded-lg p-4">
+                <div className="flex items-center text-emerald-700 font-semibold mb-2">
+                  <Target className="w-5 h-5 mr-2" />
+                  Business Impact
+                </div>
+                <p className="text-sm text-emerald-600">Increase forecast accuracy by 35%</p>
+              </div>
+            </motion.div>
+
+            {/* AI Feature 3: Natural Language Queries */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-amber-100 group"
+            >
+              <div className="w-16 h-16 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <MessageSquare className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Natural Language Queries</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Type questions in plain English like "What caused the sales spike last quarter?" and get instant visual answers with supporting data.
+              </p>
+              <div className="bg-amber-50 rounded-lg p-4">
+                <div className="flex items-center text-amber-700 font-semibold mb-2">
+                  <Users2 className="w-5 h-5 mr-2" />
+                  Business Impact
+                </div>
+                <p className="text-sm text-amber-600">Democratize data access across your organization</p>
+              </div>
+            </motion.div>
+
+            {/* AI Feature 4: Anomaly Detection */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-green-100 group"
+            >
+              <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <AlertTriangle className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Anomaly Detection</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                AI continuously monitors your KPIs and alerts you to unusual patterns, helping prevent revenue leaks and operational issues before they escalate.
+              </p>
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="flex items-center text-green-700 font-semibold mb-2">
+                  <Clock className="w-5 h-5 mr-2" />
+                  Business Impact
+                </div>
+                <p className="text-sm text-green-600">Reduce incident response time by 80%</p>
+              </div>
+            </motion.div>
+
+            {/* AI Feature 5: Smart Recommendations */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl dark:shadow-gray-900/50 transition-all duration-300 border border-blue-100 dark:border-gray-700 group"
+            >
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Lightbulb className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Smart Recommendations</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Get specific recommendations like "Increase inventory for Product X by 20% based on seasonal trends and current demand patterns."
+              </p>
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center text-blue-700 font-semibold mb-2">
+                  <Zap className="w-5 h-5 mr-2" />
+                  Business Impact
+                </div>
+                <p className="text-sm text-blue-600">Transform data into decisions 5x faster</p>
+              </div>
+            </motion.div>
+
+            {/* AI Feature 6: Multi-Model AI */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-100 group"
+            >
+              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Network className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Multi-Model AI Integration</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Leverages Claude for analysis, GPT for reports, Gemini for predictions, and open-source models for cost optimization.
+              </p>
+              <div className="bg-indigo-50 rounded-lg p-4">
+                <div className="flex items-center text-indigo-700 font-semibold mb-2">
+                  <DollarSign className="w-5 h-5 mr-2" />
+                  Business Impact
+                </div>
+                <p className="text-sm text-indigo-600">60% lower AI costs than single-provider solutions</p>
               </div>
             </motion.div>
           </div>
-        </div>
 
-        {/* Floating Elements - Hidden on mobile */}
-        <div className="hidden sm:block absolute top-20 left-10 w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full opacity-10 animate-pulse"></div>
-        <div className="hidden sm:block absolute top-40 right-20 w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full opacity-10 animate-pulse delay-1000"></div>
-        <div className="hidden lg:block absolute bottom-20 left-1/4 w-12 h-12 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full opacity-10 animate-pulse delay-2000"></div>
+          {/* Interactive Demo CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            className="mt-16 text-center"
+          >
+            <Link
+              href="/playground"
+              className="inline-flex items-center bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300"
+            >
+              <Wand2 className="w-6 h-6 mr-2" />
+              Try Interactive AI Demo
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Link>
+          </motion.div>
+        </div>
       </section>
 
       {/* Features Section */}
@@ -114,7 +504,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4 px-4 sm:px-0">
-              Why SMEs Choose DataReflow
+              Why SMEs Choose DReflowPro
             </h2>
             <p className="text-base sm:text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto px-4 sm:px-0">
               Built specifically for small and medium enterprises who need enterprise-grade data integration without enterprise complexity.
@@ -132,7 +522,7 @@ export default function Home() {
                 <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-3">5-Minute Setup Promise</h3>
-              <p className="text-sm sm:text-base text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                 Get your first data pipeline running in under 5 minutes. Pre-built templates for 50+ common SME scenarios.
               </p>
             </motion.div>
@@ -147,7 +537,7 @@ export default function Home() {
                 <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-3">AI-Agnostic Intelligence</h3>
-              <p className="text-sm sm:text-base text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                 Smart data mapping and transformations using multiple AI providers. No vendor lock-in, optimized costs.
               </p>
             </motion.div>
@@ -162,7 +552,7 @@ export default function Home() {
                 <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-3">Complete Data Journey</h3>
-              <p className="text-sm sm:text-base text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                 Extract, transform, load, visualize, and share. From pipeline to PowerPoint in one platform.
               </p>
             </motion.div>
@@ -176,50 +566,189 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div className="text-center">
               <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-indigo-600 mb-1 sm:mb-2">50+</div>
-              <div className="text-xs sm:text-sm lg:text-base text-gray-600">Popular Connectors</div>
+              <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400">Popular Connectors</div>
             </div>
             <div className="text-center">
               <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-purple-600 mb-1 sm:mb-2">5min</div>
-              <div className="text-xs sm:text-sm lg:text-base text-gray-600">Setup Time</div>
+              <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400">Setup Time</div>
             </div>
             <div className="text-center">
               <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-600 mb-1 sm:mb-2">99.5%</div>
-              <div className="text-xs sm:text-sm lg:text-base text-gray-600">Uptime SLA</div>
+              <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400">Uptime SLA</div>
             </div>
             <div className="text-center">
               <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600 mb-1 sm:mb-2">$49</div>
-              <div className="text-xs sm:text-sm lg:text-base text-gray-600">Starting From</div>
+              <div className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400">Starting From</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Popular Integrations */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-r from-gray-50 to-white">
+      {/* Comprehensive Integration Showcase */}
+      <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-purple-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 px-4 sm:px-0">
-              Connect Your Favorite Tools
-            </h2>
-            <p className="text-base sm:text-lg text-gray-600 px-4 sm:px-0">
-              50+ pre-built connectors for the most popular SME tools
-            </p>
+          <div className="text-center mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 border border-blue-200 text-blue-700 text-sm font-medium mb-6">
+                <Network className="w-4 h-4 mr-2" />
+                50+ Pre-Built Connectors
+              </div>
+              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                Connect All Your Business Tools
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                One-click integration with the tools you already use. No coding, no complexity, just instant connectivity.
+              </p>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 lg:gap-6">
-            {[
-              'QuickBooks', 'Shopify', 'Salesforce', 'Google Analytics', 
-              'PostgreSQL', 'Stripe', 'HubSpot', 'BigCommerce',
-              'Xero', 'WooCommerce', 'Mailchimp', 'Google Sheets'
-            ].map((tool, index) => (
-              <div 
-                key={tool}
-                className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-100 text-center hover:shadow-md transition-shadow"
-              >
-                <div className="text-xs sm:text-sm font-medium text-gray-700">{tool}</div>
+          {/* Connector Categories */}
+          <div className="space-y-12">
+            {/* E-commerce Connectors */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex items-center mb-6">
+                <ShoppingCart className="w-6 h-6 text-purple-600 mr-3" />
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">E-commerce Platforms</h3>
               </div>
-            ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {['Shopify', 'WooCommerce', 'BigCommerce', 'Magento', 'Amazon Seller', 'eBay'].map((tool) => (
+                  <div key={tool} className="bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 border border-purple-100 group">
+                    <div className="h-12 flex items-center justify-center mb-2">
+                      <Package className="w-8 h-8 text-purple-400 group-hover:text-purple-600 transition-colors" />
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 text-center">{tool}</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* CRM & Sales */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex items-center mb-6">
+                <Users2 className="w-6 h-6 text-blue-600 mr-3" />
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">CRM & Sales Tools</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {['Salesforce', 'HubSpot', 'Pipedrive', 'Zoho CRM', 'Monday.com', 'Freshsales'].map((tool) => (
+                  <div key={tool} className="bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 border border-blue-100 group">
+                    <div className="h-12 flex items-center justify-center mb-2">
+                      <Briefcase className="w-8 h-8 text-blue-400 group-hover:text-blue-600 transition-colors" />
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 text-center">{tool}</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Accounting & Finance */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex items-center mb-6">
+                <DollarSign className="w-6 h-6 text-green-600 mr-3" />
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Accounting & Finance</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {['QuickBooks', 'Xero', 'FreshBooks', 'Wave', 'Stripe', 'PayPal'].map((tool) => (
+                  <div key={tool} className="bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 border border-green-100 group">
+                    <div className="h-12 flex items-center justify-center mb-2">
+                      <Calculator className="w-8 h-8 text-green-400 group-hover:text-green-600 transition-colors" />
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 text-center">{tool}</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Marketing & Analytics */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex items-center mb-6">
+                <BarChart3 className="w-6 h-6 text-orange-600 mr-3" />
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Marketing & Analytics</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {['Google Analytics', 'Mailchimp', 'Facebook Ads', 'Google Ads', 'Klaviyo', 'Mixpanel'].map((tool) => (
+                  <div key={tool} className="bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 border border-orange-100 group">
+                    <div className="h-12 flex items-center justify-center mb-2">
+                      <TrendingUp className="w-8 h-8 text-orange-400 group-hover:text-orange-600 transition-colors" />
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 text-center">{tool}</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Databases & Files */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex items-center mb-6">
+                <Database className="w-6 h-6 text-indigo-600 mr-3" />
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Databases & File Storage</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {['PostgreSQL', 'MySQL', 'MongoDB', 'Google Sheets', 'Excel', 'Dropbox'].map((tool) => (
+                  <div key={tool} className="bg-white rounded-xl p-4 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 border border-indigo-100 group">
+                    <div className="h-12 flex items-center justify-center mb-2">
+                      <Server className="w-8 h-8 text-indigo-400 group-hover:text-indigo-600 transition-colors" />
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 text-center">{tool}</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           </div>
+
+          {/* Custom Integration CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mt-16 text-center bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-8 border border-purple-200"
+          >
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Don't See Your Tool?
+            </h3>
+            <p className="text-lg text-gray-600 mb-6">
+              We add new connectors weekly. Request yours or use our universal API connector.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                href="/request-connector"
+                className="inline-flex items-center bg-white text-purple-600 px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 border-2 border-purple-200"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Request Connector
+              </Link>
+              <Link
+                href="/api-docs"
+                className="inline-flex items-center bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
+              >
+                <Code2 className="w-5 h-5 mr-2" />
+                API Documentation
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -378,15 +907,15 @@ export default function Home() {
                 "Sync Shopify → Google Analytics → QuickBooks automatically. Get real-time sales insights and inventory management."
               </p>
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-green-500 flex-shrink-0" />
                   Sales analytics & trends
                 </div>
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-green-500 flex-shrink-0" />
                   Inventory optimization
                 </div>
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-green-500 flex-shrink-0" />
                   Customer behavior insights
                 </div>
@@ -412,15 +941,15 @@ export default function Home() {
                 "Connect CRM → Project Management → Invoicing. Track project profitability and client satisfaction."
               </p>
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-blue-500 flex-shrink-0" />
                   Project profitability analysis
                 </div>
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-blue-500 flex-shrink-0" />
                   Client relationship tracking
                 </div>
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-blue-500 flex-shrink-0" />
                   Resource utilization
                 </div>
@@ -446,15 +975,15 @@ export default function Home() {
                 "Integrate inventory → production → sales systems. Optimize supply chain and reduce waste."
               </p>
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-orange-500 flex-shrink-0" />
                   Supply chain optimization
                 </div>
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-orange-500 flex-shrink-0" />
                   Production efficiency
                 </div>
-                <div className="flex items-center text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-orange-500 flex-shrink-0" />
                   Quality control tracking
                 </div>
@@ -469,7 +998,7 @@ export default function Home() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-white">
+      <section className="py-12 sm:py-16 lg:py-20 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4 px-4 sm:px-0">
@@ -503,8 +1032,8 @@ export default function Home() {
                   <span className="text-white font-bold">SA</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-900">Sarah Anderson</div>
-                  <div className="text-sm text-gray-600">CEO, TechFlow Solutions</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">Sarah Anderson</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">CEO, TechFlow Solutions</div>
                 </div>
               </div>
             </motion.div>
@@ -531,8 +1060,8 @@ export default function Home() {
                   <span className="text-white font-bold">MR</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-900">Mike Rodriguez</div>
-                  <div className="text-sm text-gray-600">Operations Director, GrowthCorp</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">Mike Rodriguez</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Operations Director, GrowthCorp</div>
                 </div>
               </div>
             </motion.div>
@@ -559,8 +1088,8 @@ export default function Home() {
                   <span className="text-white font-bold">LC</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-900">Lisa Chen</div>
-                  <div className="text-sm text-gray-600">Founder, DataSmart Retail</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">Lisa Chen</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Founder, DataSmart Retail</div>
                 </div>
               </div>
             </motion.div>
@@ -689,7 +1218,7 @@ export default function Home() {
       </section>
 
       {/* Pricing Teaser */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-white">
+      <section className="py-12 sm:py-16 lg:py-20 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4 px-4 sm:px-0">
