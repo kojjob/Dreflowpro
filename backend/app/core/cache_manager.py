@@ -35,12 +35,14 @@ class CacheLayer:
 
 
 class MemoryCache(CacheLayer):
-    """In-memory cache layer (L1 cache)."""
+    """In-memory cache layer (L1 cache) with tag-based invalidation."""
     
     def __init__(self, max_size: int = 1000):
         self.cache: Dict[str, Dict[str, Any]] = {}
         self.max_size = max_size
         self.access_order: List[str] = []
+        self.tag_index: Dict[str, set] = {}  # Tag-based invalidation support
+        self.pattern_index: Dict[str, set] = {}  # Pattern-based invalidation
     
     async def get(self, key: str) -> Optional[Any]:
         if key in self.cache:
@@ -57,7 +59,42 @@ class MemoryCache(CacheLayer):
                 await self.delete(key)
         return None
     
-    async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
+    async def invalidate_by_tag(self, tag: str) -> int:
+        """Invalidate all cache entries with a specific tag."""
+        count = 0
+        if tag in self.tag_index:
+            keys = list(self.tag_index[tag])
+            for key in keys:
+                if await self.delete(key):
+                    count += 1
+            del self.tag_index[tag]
+        return count
+    
+    async def invalidate_by_pattern(self, pattern: str) -> int:
+        """Invalidate all cache entries matching a pattern."""
+        import re
+        count = 0
+        pattern_re = re.compile(pattern)
+        keys_to_delete = [k for k in self.cache.keys() if pattern_re.match(k)]
+        for key in keys_to_delete:
+            if await self.delete(key):
+                count += 1
+        return count
+    
+    def _add_tags(self, key: str, tags: List[str]):
+        """Associate tags with a cache key."""
+        if tags:
+            for tag in tags:
+                if tag not in self.tag_index:
+                    self.tag_index[tag] = set()
+                self.tag_index[tag].add(key)
+    
+    def _remove_tags(self, key: str):
+        """Remove tag associations for a key."""
+        for tag_set in self.tag_index.values():
+            tag_set.discard(key)
+    
+    async def set(self, key: str, value: Any, ttl: int = 300, tags: List[str] = None) -> bool:
         try:
             # Evict old entries if at capacity
             if len(self.cache) >= self.max_size and key not in self.cache:
@@ -67,8 +104,12 @@ class MemoryCache(CacheLayer):
             self.cache[key] = {
                 'value': value,
                 'expires_at': expires_at,
-                'created_at': datetime.utcnow()
+                'created_at': datetime.utcnow(),
+                'tags': tags or []
             }
+            
+            # Add tag associations
+            self._add_tags(key, tags or [])
             
             # Update access order
             if key in self.access_order:
@@ -82,6 +123,8 @@ class MemoryCache(CacheLayer):
     
     async def delete(self, key: str) -> bool:
         if key in self.cache:
+            # Remove tag associations
+            self._remove_tags(key)
             del self.cache[key]
             if key in self.access_order:
                 self.access_order.remove(key)
@@ -180,10 +223,16 @@ class MultiLayerCache:
         self.hit_stats['misses'] += 1
         return None
     
-    async def set(self, key: str, value: Any, l1_ttl: int = 300, l2_ttl: int = 1800) -> bool:
-        """Set value in both cache layers."""
-        l1_success = await self.l1_cache.set(key, value, l1_ttl)
+    async def set(self, key: str, value: Any, l1_ttl: int = 300, l2_ttl: int = 1800, tags: List[str] = None) -> bool:
+        """Set value in both cache layers with optional tags."""
+        l1_success = await self.l1_cache.set(key, value, l1_ttl, tags=tags)
         l2_success = await self.l2_cache.set(key, value, l2_ttl)
+        
+        # Store tags in Redis for distributed invalidation
+        if tags and l2_success:
+            for tag in tags:
+                await self.l2_cache.redis.sadd(f"tag:{tag}", key)
+                await self.l2_cache.redis.expire(f"tag:{tag}", l2_ttl)
         
         return l1_success or l2_success
     
@@ -198,16 +247,49 @@ class MultiLayerCache:
         """Check if key exists in any cache layer."""
         return await self.l1_cache.exists(key) or await self.l2_cache.exists(key)
     
-    async def invalidate_pattern(self, pattern: str):
-        """Invalidate cache entries matching pattern (Redis only)."""
+    async def invalidate_pattern(self, pattern: str) -> int:
+        """Invalidate cache entries matching pattern in both layers."""
+        count = 0
         try:
+            # Invalidate in L1 cache
+            if hasattr(self.l1_cache, 'invalidate_by_pattern'):
+                count += await self.l1_cache.invalidate_by_pattern(pattern)
+            
             # Get all keys matching pattern from Redis
             keys = await self.l2_cache.redis.keys(pattern)
             if keys:
                 await self.l2_cache.redis.delete(*keys)
+                count += len(keys)
                 logger.info(f"Invalidated {len(keys)} cache entries matching pattern: {pattern}")
         except Exception as e:
             logger.error(f"Cache pattern invalidation error: {e}")
+        return count
+    
+    async def invalidate_by_tag(self, tag: str) -> int:
+        """Invalidate all cache entries with a specific tag."""
+        count = 0
+        try:
+            # Invalidate in L1 cache
+            if hasattr(self.l1_cache, 'invalidate_by_tag'):
+                count += await self.l1_cache.invalidate_by_tag(tag)
+            
+            # Get keys with tag from Redis
+            keys = await self.l2_cache.redis.smembers(f"tag:{tag}")
+            if keys:
+                # Convert bytes to strings if necessary
+                keys = [k.decode() if isinstance(k, bytes) else k for k in keys]
+                await self.l2_cache.redis.delete(*keys)
+                await self.l2_cache.redis.delete(f"tag:{tag}")
+                count += len(keys)
+                logger.info(f"Invalidated {len(keys)} cache entries with tag: {tag}")
+        except Exception as e:
+            logger.error(f"Cache tag invalidation error: {e}")
+        return count
+    
+    async def invalidate_by_prefix(self, prefix: str) -> int:
+        """Invalidate all cache entries with a specific prefix."""
+        pattern = f"{prefix}*"
+        return await self.invalidate_pattern(pattern)
     
     def get_hit_ratio(self) -> Dict[str, float]:
         """Get cache hit ratio statistics."""
@@ -225,6 +307,39 @@ class MultiLayerCache:
             'hit_ratio': round(hit_ratio, 3),
             'total_requests': total
         }
+    
+    async def warm_cache(self, warming_data: Dict[str, Any], ttl: int = 3600):
+        """Warm cache with frequently accessed data."""
+        logger.info(f"Starting cache warming with {len(warming_data)} entries")
+        success_count = 0
+        
+        for key, value in warming_data.items():
+            try:
+                if await self.set(key, value, l1_ttl=ttl, l2_ttl=ttl * 3):
+                    success_count += 1
+            except Exception as e:
+                logger.error(f"Failed to warm cache for key {key}: {e}")
+        
+        logger.info(f"Cache warming complete: {success_count}/{len(warming_data)} entries cached")
+        return success_count
+    
+    async def get_cache_stats(self) -> Dict[str, Any]:
+        """Get comprehensive cache statistics."""
+        stats = {
+            'hit_ratios': self.get_hit_ratio(),
+            'memory_cache_size': len(self.l1_cache.cache) if hasattr(self.l1_cache, 'cache') else 0,
+            'tag_count': len(self.l1_cache.tag_index) if hasattr(self.l1_cache, 'tag_index') else 0,
+        }
+        
+        # Get Redis info if available
+        try:
+            redis_info = await self.l2_cache.redis.info('memory')
+            stats['redis_memory_used'] = redis_info.get('used_memory_human', 'N/A')
+            stats['redis_memory_peak'] = redis_info.get('used_memory_peak_human', 'N/A')
+        except Exception:
+            pass
+        
+        return stats
 
 
 # Global cache manager instance

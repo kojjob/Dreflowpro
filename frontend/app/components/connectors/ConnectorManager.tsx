@@ -6,6 +6,7 @@ import { Card } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { Alert } from '../ui/Alert';
 import Logger from '../../utils/logger';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Database,
   Cloud,
@@ -19,7 +20,19 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Eye
+  Eye,
+  Search,
+  Filter,
+  Grid3X3,
+  List,
+  RefreshCw,
+  MoreVertical,
+  Activity,
+  Clock,
+  Link2,
+  Shield,
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 
 interface Connector {
@@ -83,6 +96,14 @@ const ConnectorManager: React.FC = () => {
   const [testResults, setTestResults] = useState<Record<string, any>>({});
   const [creating, setCreating] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ConnectorTemplate | null>(null);
+  
+  // New state for enhanced UI
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [refreshing, setRefreshing] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   // Form state for creating new connectors
   const [formData, setFormData] = useState({
@@ -167,8 +188,23 @@ const ConnectorManager: React.FC = () => {
       setConnectors([]); // Ensure connectors is always an array
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchConnectors();
+  };
+
+  // Filter connectors based on search and filter criteria
+  const filteredConnectors = connectors.filter(connector => {
+    const matchesSearch = connector.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          connector.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = filterType === 'all' || connector.type === filterType;
+    const matchesStatus = filterStatus === 'all' || connector.status === filterStatus;
+    return matchesSearch && matchesType && matchesStatus;
+  });
 
   useEffect(() => {
     fetchConnectors();
@@ -374,72 +410,217 @@ const ConnectorManager: React.FC = () => {
         </Alert>
       )}
 
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Data Connectors</h2>
-          <p className="text-gray-600">Manage connections to your data sources</p>
+      {/* Enhanced Header with Gradient */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold flex items-center space-x-3">
+              <Database className="w-8 h-8" />
+              <span>Data Connectors</span>
+            </h2>
+            <p className="text-blue-100 mt-2">Connect, manage, and monitor your data sources in one place</p>
+          </div>
+          <motion.button
+            onClick={() => setShowCreateForm(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold flex items-center space-x-2 shadow-lg transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Connector</span>
+          </motion.button>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Connector</span>
-        </button>
       </div>
 
-      {/* Connector Overview */}
+      {/* Stats Overview with Gradient Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <Database className="w-8 h-8 text-blue-600" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{connectors.length}</div>
-              <div className="text-sm text-gray-500">Total Connectors</div>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">
-                {connectors.filter(c => c.status === 'active').length}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <Card className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-3xl font-bold text-blue-900">{connectors.length}</div>
+                <div className="text-sm text-blue-600 font-medium mt-1">Total Connectors</div>
               </div>
-              <div className="text-sm text-gray-500">Active</div>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <XCircle className="w-8 h-8 text-red-600" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">
-                {connectors.filter(c => c.status === 'error').length}
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Database className="w-6 h-6 text-blue-600" />
               </div>
-              <div className="text-sm text-gray-500">Errors</div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
         
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <Globe className="w-8 h-8 text-purple-600" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">
-                {new Set(connectors.map(c => c.type)).size}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-3xl font-bold text-green-900">
+                  {connectors.filter(c => c.status === 'active').length}
+                </div>
+                <div className="text-sm text-green-600 font-medium mt-1">Active</div>
               </div>
-              <div className="text-sm text-gray-500">Types</div>
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <Activity className="w-6 h-6 text-green-600" />
+              </div>
             </div>
+          </Card>
+        </motion.div>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <Card className="p-5 bg-gradient-to-br from-red-50 to-pink-50 border-red-200 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-3xl font-bold text-red-900">
+                  {connectors.filter(c => c.status === 'error').length}
+                </div>
+                <div className="text-sm text-red-600 font-medium mt-1">Errors</div>
+              </div>
+              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+        >
+          <Card className="p-5 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-3xl font-bold text-purple-900">
+                  {new Set(connectors.map(c => c.type)).size}
+                </div>
+                <div className="text-sm text-purple-600 font-medium mt-1">Types</div>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Search and Filter Toolbar */}
+      <div className="bg-white rounded-xl shadow-md p-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search Bar */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search connectors by name or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
           </div>
-        </Card>
+
+          {/* Filter Controls */}
+          <div className="flex gap-2">
+            {/* Type Filter */}
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Types</option>
+              <option value="database">Database</option>
+              <option value="api">API</option>
+              <option value="cloud">Cloud</option>
+              <option value="file">File</option>
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="error">Error</option>
+              <option value="testing">Testing</option>
+            </select>
+
+            {/* View Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''} transition-all`}
+              >
+                <Grid3X3 className="w-4 h-4 text-gray-600" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''} transition-all`}
+              >
+                <List className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Refresh Button */}
+            <motion.button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Active Filters Display */}
+        {(searchQuery || filterType !== 'all' || filterStatus !== 'all') && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-sm text-gray-500">Active filters:</span>
+            {searchQuery && (
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                Search: {searchQuery}
+              </span>
+            )}
+            {filterType !== 'all' && (
+              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                Type: {filterType}
+              </span>
+            )}
+            {filterStatus !== 'all' && (
+              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                Status: {filterStatus}
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setFilterType('all');
+                setFilterStatus('all');
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Connector Templates (when no connectors exist) */}
-      {connectors.length === 0 && !loading && (
+      {filteredConnectors.length === 0 && connectors.length === 0 && !loading && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Choose a Connector Type</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -461,8 +642,8 @@ const ConnectorManager: React.FC = () => {
       )}
 
       {/* Connector List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {connectors.map((connector) => (
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : 'space-y-4'}>
+        {filteredConnectors.map((connector, index) => (
           <Card key={connector.id} className="p-6">
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center space-x-3">
