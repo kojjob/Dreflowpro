@@ -42,7 +42,7 @@ engine = create_async_engine(
         },
         "command_timeout": 60,
         "prepared_statement_cache_size": 100,
-        "prepared_statement_name_func": lambda idx: f"__asyncpg_{idx}__",
+        "prepared_statement_name_func": lambda: f"__asyncpg_{time.time()}__",
     } if "postgresql" in settings.DATABASE_URL else {}
 )
 
