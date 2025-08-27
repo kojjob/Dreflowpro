@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, DateTime, Boolean, Enum, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID, JSON
+from sqlalchemy.dialects.postgresql import UUID, JSON, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from enum import Enum as PyEnum
 import uuid
+import bcrypt
 from ..core.database import Base
 
 
@@ -70,6 +71,17 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
+    # MFA fields
+    mfa_enabled = Column(Boolean, default=False)
+    mfa_secret = Column(String(255), nullable=True)  # Encrypted TOTP secret
+    mfa_backup_codes = Column(ARRAY(String), nullable=True)  # Hashed backup codes
+    mfa_enabled_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Security fields
+    password_changed_at = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    
     # Relationships
     organization = relationship("Organization", back_populates="users")
     api_keys = relationship("APIKey", back_populates="user")
@@ -85,6 +97,25 @@ class User(Base):
         if self.first_name and self.last_name:
             return f"{self.first_name} {self.last_name}"
         return self.email.split("@")[0]
+    
+    @property
+    def is_admin(self) -> bool:
+        """Check if user has admin role."""
+        return self.role == UserRole.ADMIN
+    
+    @property
+    def is_locked(self) -> bool:
+        """Check if account is locked."""
+        from datetime import datetime
+        if self.locked_until:
+            return datetime.utcnow() < self.locked_until
+        return False
+    
+    def verify_password(self, password: str) -> bool:
+        """Verify user's password."""
+        if not self.hashed_password:
+            return False
+        return bcrypt.checkpw(password.encode('utf-8'), self.hashed_password.encode('utf-8'))
 
 
 class SocialAccount(Base):
@@ -115,18 +146,3 @@ class SocialAccount(Base):
     )
 
 
-class APIKey(Base):
-    """API keys for programmatic access."""
-    __tablename__ = "api_keys"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    key_hash = Column(String(255), nullable=False, unique=True, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
-    is_active = Column(Boolean, default=True, index=True)
-    last_used = Column(DateTime(timezone=True), nullable=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    user = relationship("User", back_populates="api_keys")
