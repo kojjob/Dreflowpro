@@ -1,0 +1,42 @@
+# Robots.txt for DreflowPro ETL Platform
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+
+# Disallow authentication and private pages
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /auth/
+Disallow: /api/
+Disallow: /admin
+Disallow: /profile
+Disallow: /settings
+Disallow: /pipelines
+Disallow: /connectors/manage
+Disallow: /users
+Disallow: /forgot-password
+Disallow: /reset-password
+
+# Allow public pages
+Allow: /
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /contact
+Allow: /blog
+Allow: /docs
+Allow: /help
+Allow: /integrations
+
+# Block search result pages and filters
+Disallow: /*?*
+
+# Sitemap location
+Sitemap: https://dreflowpro.com/sitemap.xml
+Sitemap: https://dreflowpro.com/sitemap-blog.xml
+Sitemap: https://dreflowpro.com/sitemap-docs.xml
+
+# Crawl delay for better server performance
+Crawl-delay: 1

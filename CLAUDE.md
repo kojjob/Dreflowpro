@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DReflowPro** is a full-stack ETL/ELT SaaS platform for SMEs with a FastAPI backend and Next.js frontend.
 
-### Backend Structure (fastapi_d_reflowpro/)
+### Backend Structure (backend/)
 - **Python 3.13+** with **FastAPI** framework and **SQLAlchemy** ORM  
 - **Architecture**: Layered architecture with models, services, schemas, and API routers
 - **Database**: PostgreSQL with async support (asyncpg)
@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `transformations/`: Data transformation logic
   - `visualization_service.py`: Chart/report generation
 
-### Frontend Structure (nextjs_d_reflowpro/)  
+### Frontend Structure (frontend/)  
 - **Next.js 15** with **React 19** and **TypeScript**
 - **Styling**: Tailwind CSS v4 with custom brand colors
 - **State Management**: React hooks with localStorage persistence
@@ -35,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Backend (FastAPI)
 ```bash
-cd fastapi_d_reflowpro
+cd backend
 
 # Development server  
 python main.py
@@ -59,7 +59,7 @@ pytest tests/
 
 ### Frontend (Next.js)
 ```bash  
-cd nextjs_d_reflowpro
+cd frontend
 
 # Development server
 npm run dev
