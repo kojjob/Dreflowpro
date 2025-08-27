@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import MagicMock, patch
 
-from app.models.connector import Connector
+from app.models.connector import DataConnector
 from app.models.user import User
 
 

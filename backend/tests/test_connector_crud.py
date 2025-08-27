@@ -10,7 +10,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
+from main import app
 from app.core.database import get_session, engine
 from app.models.connector import DataConnector, ConnectorType, ConnectorStatus
 from app.schemas.connector import ConnectorCreate, ConnectorUpdate

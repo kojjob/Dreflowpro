@@ -3,6 +3,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool, QueuePool
 from sqlalchemy import event, text
 from typing import AsyncGenerator, Optional
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -32,17 +33,14 @@ engine = create_async_engine(
     echo=settings.DEBUG,
     poolclass=QueuePool if not settings.DEBUG else NullPool,
     **POOL_CONFIG if not settings.DEBUG else {},
-    # Additional performance settings
+    # Additional performance settings - simplified to avoid prepared statement issues
     connect_args={
         "server_settings": {
             "application_name": "dreflowpro",
             "jit": "on",
-            "statement_timeout": "30000",  # 30 seconds
-            "idle_in_transaction_session_timeout": "60000",  # 60 seconds
         },
         "command_timeout": 60,
-        "prepared_statement_cache_size": 100,
-        "prepared_statement_name_func": lambda idx: f"__asyncpg_{idx}__",
+        "statement_cache_size": 0,  # Disable prepared statements to avoid conflicts
     } if "postgresql" in settings.DATABASE_URL else {}
 )
 
