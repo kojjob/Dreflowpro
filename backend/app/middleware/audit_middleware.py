@@ -193,9 +193,15 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
                 "outcome": outcome
             })
             
-            # Add response headers
+            # Add response headers (safely handle if not available)
             if 'response' in locals():
-                response_details["response_headers"] = self.sanitize_headers(dict(response.headers))
+                try:
+                    # Response headers might not be available in ASGI middleware
+                    if hasattr(response, 'headers'):
+                        response_details["response_headers"] = self.sanitize_headers(dict(response.headers))
+                except (AttributeError, TypeError, KeyError):
+                    # Headers not available in this context
+                    pass
             
             # Create audit message
             if outcome == "SUCCESS":

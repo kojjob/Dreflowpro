@@ -191,7 +191,8 @@ class ApiService {
         throw new Error('Authentication failed. Please try again.');
       }
 
-      if (!response.ok) {
+      // Consider 204 No Content as successful (common for DELETE operations)
+      if (!response.ok && response.status !== 204) {
         // Handle different error types more gracefully
         if (response.status === 404) {
           // In development, 404s are expected when backends aren't running
@@ -339,7 +340,17 @@ class ApiService {
       headers,
     });
 
-    return response.json();
+    // DELETE requests might return empty response
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      return {} as T;
+    }
+    
+    // Try to parse JSON response, return empty object if fails
+    try {
+      return await response.json();
+    } catch {
+      return {} as T;
+    }
   }
 
   /**

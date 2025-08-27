@@ -26,6 +26,7 @@ from app.middleware.rate_limiting import GlobalRateLimitMiddleware, APIRateLimit
 from app.middleware.csrf_protection import CSRFProtectionMiddleware
 from app.middleware.audit_middleware import AuditLoggingMiddleware, SecurityAuditMiddleware
 from app.core.tenant_middleware import TenantMiddleware
+from app.middleware.rate_limiter import rate_limit_middleware
 
 
 @asynccontextmanager
@@ -99,6 +100,13 @@ app = FastAPI(
 
 # Prometheus metrics middleware (added early for comprehensive monitoring)
 app.add_middleware(PrometheusMiddleware)
+
+# Security headers middleware (added first for security)
+from app.middleware.security_headers import SecurityHeadersMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Enhanced rate limiting middleware with DDoS protection
+app.middleware("http")(rate_limit_middleware)
 
 # Rate limiting middleware (added first for early protection)
 app.add_middleware(

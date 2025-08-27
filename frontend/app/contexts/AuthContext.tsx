@@ -163,11 +163,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
 
-      // No valid session found, redirect to login
-      Logger.log('🔐 No valid session found, redirecting to login');
-      router.push('/login');
-
-      // No valid session found, user needs to log in
+      // No valid session found, but don't redirect - let protected routes handle it
       Logger.log('🔐 No valid session found');
       setUser(null);
       setSession(null);
@@ -176,9 +172,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       Logger.error('🔐 Authentication initialization failed:', error);
       setError('Authentication initialization failed');
-      
-      // On error, redirect to login
-      router.push('/login');
+      // Don't redirect here - let protected routes handle authentication
     } finally {
       setLoading(false);
     }

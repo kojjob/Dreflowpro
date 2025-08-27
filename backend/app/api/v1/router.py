@@ -19,6 +19,7 @@ from .export.router import router as export_router
 from .reports.router import router as reports_router
 from .dashboard.router import router as dashboard_router
 from .system.router import router as system_router
+from ...api.security import router as security_router
 
 # Create the main v1 router
 router = APIRouter(prefix="/api/v1")
@@ -44,3 +45,4 @@ router.include_router(export_router, tags=["data_export"])
 router.include_router(reports_router, tags=["reports"])
 router.include_router(dashboard_router, tags=["dashboard"])
 router.include_router(system_router, tags=["system"])
+router.include_router(security_router, tags=["security"])

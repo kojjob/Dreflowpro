@@ -33,7 +33,10 @@ import {
   Shield,
   Sparkles,
   ChevronDown,
-  X
+  X,
+  ArrowRight,
+  Zap,
+  Lock
 } from 'lucide-react';
 
 interface Connector {
@@ -1302,150 +1305,310 @@ const ConnectorManager: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Create Connector Modal */}
+      {/* Create New Connector Modal - Modern Layered Design */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedTemplate ? `Create ${selectedTemplate.name} Connector` : 'Create New Connector'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowCreateForm(false);
-                  resetForm();
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            {!selectedTemplate ? (
-              // Template Selection
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Choose a Connector Type</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {connectorTemplates.map((template) => (
-                    <div
-                      key={`${template.type}-${template.provider}`}
-                      className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
-                      onClick={() => handleTemplateSelect(template)}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Light Backdrop with Blur */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-white/80 backdrop-blur-xl"
+            onClick={() => {
+              setShowCreateForm(false);
+              resetForm();
+            }}
+          />
+          
+          {/* Modal Container - Larger Size */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", duration: 0.35, bounce: 0.3 }}
+            className="relative w-full max-w-6xl"
+          >
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+              {/* Gradient Header Bar */}
+              <div className="h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+              
+              {/* Modal Header */}
+              <div className="px-10 py-8 bg-gradient-to-br from-gray-50 to-blue-50 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <motion.div
+                      animate={{ rotate: [0, 360] }}
+                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                      className="p-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg"
                     >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <template.icon className="w-6 h-6 text-blue-600" />
-                        <h4 className="font-medium text-gray-900">{template.name}</h4>
-                      </div>
-                      <p className="text-sm text-gray-600">{template.description}</p>
+                      <Zap className="w-7 h-7 text-white" />
+                    </motion.div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-gray-900">
+                        {selectedTemplate ? 'Configure Connection' : 'Create New Connector'}
+                      </h2>
+                      <p className="text-base text-gray-600 mt-1">
+                        {selectedTemplate ? `Set up your ${selectedTemplate.name} connection` : 'Choose your data source type'}
+                      </p>
                     </div>
-                  ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      resetForm();
+                    }}
+                    className="p-3 rounded-xl hover:bg-white/80 transition-all hover:rotate-90 duration-200"
+                  >
+                    <X className="w-6 h-6 text-gray-500" />
+                  </button>
                 </div>
               </div>
-            ) : (
-              // Connector Form
-              <form onSubmit={handleCreateConnector} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Connector Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => updateFormField('name', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder={`My ${selectedTemplate.name} Connector`}
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => updateFormField('description', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={3}
-                    placeholder="Describe this connector..."
-                  />
-                </div>
+              {/* Modal Content - Increased Height */}
+              <div className="p-10 max-h-[calc(90vh-150px)] overflow-y-auto bg-gradient-to-b from-white to-gray-50/30">
+                {!selectedTemplate ? (
+                  // Template Selection View - Larger Card Grid
+                  <div>
+                    <div className="mb-10 text-center">
+                      <h3 className="text-2xl font-semibold text-gray-800 mb-3">Select Your Data Source</h3>
+                      <p className="text-lg text-gray-600">Choose from our supported connector types to begin integration</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                      {connectorTemplates.map((template) => (
+                        <motion.div
+                          key={`${template.type}-${template.provider}`}
+                          whileHover={{ y: -6, scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => handleTemplateSelect(template)}
+                          className="group cursor-pointer"
+                        >
+                          <div className="relative bg-white border-2 border-gray-200 rounded-2xl p-8 hover:border-blue-400 hover:shadow-2xl transition-all duration-200 overflow-hidden h-full">
+                            {/* Hover Gradient Background */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                            
+                            {/* Content */}
+                            <div className="relative flex flex-col items-center text-center">
+                              <div className="p-4 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl group-hover:from-blue-200 group-hover:to-indigo-200 transition-colors mb-4">
+                                <template.icon className="w-10 h-10 text-blue-600" />
+                              </div>
+                              <h4 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-blue-700 transition-colors">
+                                {template.name}
+                              </h4>
+                              <p className="text-base text-gray-600 leading-relaxed mb-4">
+                                {template.description}
+                              </p>
+                              <div className="mt-auto flex items-center text-blue-600 text-base font-medium">
+                                <span>Configure</span>
+                                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" />
+                              </div>
+                              
+                              {/* Provider Badge */}
+                              {template.provider && (
+                                <div className="absolute top-4 right-4">
+                                  <span className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-full font-medium">
+                                    {template.provider.toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
 
-                {/* Dynamic Configuration Fields */}
-                {selectedTemplate.config_schema.map((field) => (
-                  <div key={field.field}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </label>
-                    {field.type === 'select' ? (
-                      <select
-                        required={field.required}
-                        value={formData.connection_config[field.field] || ''}
-                        onChange={(e) => updateFormField(`connection_config.${field.field}`, e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">Select {field.label}</option>
-                        {field.options?.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.type === 'boolean' ? (
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.connection_config[field.field] || false}
-                          onChange={(e) => updateFormField(`connection_config.${field.field}`, e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-2 text-sm text-gray-600">Enable {field.label}</span>
+                    {/* Quick Info Box */}
+                    <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium mb-1">Secure Connection</p>
+                          <p className="text-blue-700">All connections are encrypted and credentials are securely stored. You can test the connection before saving.</p>
+                        </div>
                       </div>
-                    ) : (
-                      <input
-                        type={field.type}
-                        required={field.required}
-                        value={formData.connection_config[field.field] || ''}
-                        onChange={(e) => updateFormField(`connection_config.${field.field}`,
-                          field.type === 'number' ? parseInt(e.target.value) || '' : e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder={field.placeholder}
-                      />
-                    )}
+                    </div>
                   </div>
-                ))}
+                ) : (
+                  // Configuration Form View
+                  <form onSubmit={handleCreateConnector} className="space-y-8">
+                    {/* Progress Steps */}
+                    <div className="flex items-center justify-center mb-8">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-semibold">
+                            ✓
+                          </div>
+                          <span className="ml-2 text-sm font-medium text-gray-700">Select Type</span>
+                        </div>
+                        <div className="w-16 h-[2px] bg-gray-300"></div>
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold animate-pulse">
+                            2
+                          </div>
+                          <span className="ml-2 text-sm font-medium text-gray-700">Configure</span>
+                        </div>
+                        <div className="w-16 h-[2px] bg-gray-200"></div>
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-semibold">
+                            3
+                          </div>
+                          <span className="ml-2 text-sm font-medium text-gray-400">Test & Save</span>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="flex justify-between space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTemplate(null)}
-                    className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Back
-                  </button>
-                  <div className="flex space-x-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateForm(false);
-                        resetForm();
-                      }}
-                      className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={creating}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      {creating ? 'Creating...' : 'Create Connector'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-          </div>
+                    {/* Basic Information Section */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">1</span>
+                        Basic Information
+                      </h4>
+                      <div className="space-y-5 pl-10">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Connection Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={formData.name}
+                            onChange={(e) => updateFormField('name', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                            placeholder={`e.g., Production ${selectedTemplate.name}`}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Description
+                            <span className="text-xs text-gray-500 ml-2">(Optional)</span>
+                          </label>
+                          <textarea
+                            value={formData.description}
+                            onChange={(e) => updateFormField('description', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
+                            rows={3}
+                            placeholder="Brief description of this connection..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Connection Configuration Section */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">2</span>
+                        Connection Configuration
+                      </h4>
+                      <div className="space-y-5 pl-10">
+                        {selectedTemplate.config_schema.map((field) => (
+                          <div key={field.field}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {field.label} 
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                              {field.type === 'password' && (
+                                <Lock className="w-3 h-3 inline-block ml-2 text-gray-400" />
+                              )}
+                            </label>
+                            
+                            {field.type === 'select' ? (
+                              <select
+                                required={field.required}
+                                value={formData.connection_config[field.field] || ''}
+                                onChange={(e) => updateFormField(`connection_config.${field.field}`, e.target.value)}
+                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                              >
+                                <option value="">Choose {field.label}</option>
+                                {field.options?.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : field.type === 'boolean' ? (
+                              <label className="flex items-center gap-3 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.connection_config[field.field] || false}
+                                  onChange={(e) => updateFormField(`connection_config.${field.field}`, e.target.checked)}
+                                  className="w-5 h-5 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <span className="text-gray-700 group-hover:text-gray-900">Enable {field.label}</span>
+                              </label>
+                            ) : (
+                              <div className="relative">
+                                <input
+                                  type={field.type}
+                                  required={field.required}
+                                  value={formData.connection_config[field.field] || ''}
+                                  onChange={(e) => updateFormField(`connection_config.${field.field}`,
+                                    field.type === 'number' ? parseInt(e.target.value) || '' : e.target.value)}
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                  placeholder={field.placeholder}
+                                />
+                                {field.type === 'password' && (
+                                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                    <Shield className="w-5 h-5 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Helper Text */}
+                            {field.placeholder && field.type !== 'text' && field.type !== 'password' && field.type !== 'number' && (
+                              <p className="mt-1.5 text-xs text-gray-500">{field.placeholder}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-between items-center pt-6 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTemplate(null)}
+                        className="flex items-center gap-2 px-5 py-2.5 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                      >
+                        <ChevronDown className="w-4 h-4 transform rotate-90" />
+                        Back to Selection
+                      </button>
+                      
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateForm(false);
+                            resetForm();
+                          }}
+                          className="px-6 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={creating}
+                          className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {creating ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              Create Connector
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
 
