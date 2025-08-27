@@ -13,7 +13,7 @@ interface AuthContextType {
   session: UserSession | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
@@ -34,14 +34,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Secure token storage utilities
+  // Secure token storage utilities with persistent option
   const getStoredToken = () => {
     try {
       if (typeof window === 'undefined') return null;
       
-      const accessToken = sessionStorage.getItem('access_token');
-      const refreshToken = sessionStorage.getItem('refresh_token');
-      const expiresAt = sessionStorage.getItem('token_expires_at');
+      // Check localStorage first (persistent), then sessionStorage (session-only)
+      const rememberMe = localStorage.getItem('remember_me') === 'true';
+      const storage = rememberMe ? localStorage : sessionStorage;
+      
+      const accessToken = storage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const refreshToken = storage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      const expiresAt = storage.getItem('token_expires_at') || sessionStorage.getItem('token_expires_at');
       
       if (accessToken) {
         return {
@@ -58,17 +62,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const setStoredTokens = (accessToken: string, refreshToken?: string, expiresAt?: string) => {
+  const setStoredTokens = (accessToken: string, refreshToken?: string, expiresAt?: string, rememberMe: boolean = true) => {
     try {
       if (typeof window === 'undefined') return;
       
-      sessionStorage.setItem('access_token', accessToken);
+      // Use localStorage for persistent storage if rememberMe is true
+      const storage = rememberMe ? localStorage : sessionStorage;
+      
+      // Store in appropriate storage
+      storage.setItem('access_token', accessToken);
       if (refreshToken) {
-        sessionStorage.setItem('refresh_token', refreshToken);
+        storage.setItem('refresh_token', refreshToken);
       }
       if (expiresAt) {
-        sessionStorage.setItem('token_expires_at', expiresAt);
+        storage.setItem('token_expires_at', expiresAt);
       }
+      
+      // Store remember me preference
+      localStorage.setItem('remember_me', rememberMe.toString());
+      
+      // Clear from the other storage type to avoid conflicts
+      const otherStorage = rememberMe ? sessionStorage : localStorage;
+      otherStorage.removeItem('access_token');
+      otherStorage.removeItem('refresh_token');
+      otherStorage.removeItem('token_expires_at');
     } catch (error) {
       Logger.error('Error storing tokens:', error);
     }
@@ -78,14 +95,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (typeof window === 'undefined') return;
       
-      // Clear all authentication-related data
+      // Clear all authentication-related data from both storages
       sessionStorage.removeItem('access_token');
       sessionStorage.removeItem('refresh_token');
       sessionStorage.removeItem('token_expires_at');
       
-      // Also clear any legacy localStorage tokens
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expires_at');
+      localStorage.removeItem('remember_me');
     } catch (error) {
       Logger.error('Error clearing stored tokens:', error);
     }
@@ -96,12 +114,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Set up token refresh interval
+  // Set up token refresh interval - more aggressive refresh
   useEffect(() => {
     if (session?.token) {
+      // Check token immediately on mount
+      refreshTokenIfNeeded();
+      
+      // Then check every 3 minutes (more frequent to prevent expiry)
       const refreshInterval = setInterval(() => {
         refreshTokenIfNeeded();
-      }, 5 * 60 * 1000); // Check every 5 minutes
+      }, 3 * 60 * 1000); // Check every 3 minutes
 
       return () => clearInterval(refreshInterval);
     }
@@ -163,7 +185,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, rememberMe: boolean = true): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
@@ -173,8 +195,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.access_token) {
         const expiresAt = getTokenExpiration(response.access_token);
         
-        // Store tokens securely
-        setStoredTokens(response.access_token, response.refresh_token, expiresAt);
+        // Store tokens securely with remember me preference
+        setStoredTokens(response.access_token, response.refresh_token, expiresAt, rememberMe);
 
         // Fetch user data
         const userData = await apiService.getCurrentUser();
@@ -304,8 +326,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           Logger.log('🔐 Token refreshed successfully, new expiry:', newExpiresAt);
           
-          // Update stored tokens
-          setStoredTokens(response.access_token, response.refresh_token || session.refreshToken, newExpiresAt);
+          // Update stored tokens with the same rememberMe preference
+          const rememberMe = localStorage.getItem('remember_me') === 'true';
+          setStoredTokens(response.access_token, response.refresh_token || session.refreshToken, newExpiresAt, rememberMe);
           
           setSession(prev => prev ? {
             ...prev,

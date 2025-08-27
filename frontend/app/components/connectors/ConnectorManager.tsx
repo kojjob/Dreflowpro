@@ -32,7 +32,11 @@ import {
   Link2,
   Shield,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  X,
+  ArrowRight,
+  Zap,
+  Lock
 } from 'lucide-react';
 
 interface Connector {
