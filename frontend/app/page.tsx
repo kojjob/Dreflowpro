@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -39,30 +39,16 @@ import {
 
 export default function Home() {
   const router = useRouter()
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   useEffect(() => {
     // Check if user is already logged in
-    const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
     
     if (token) {
+      // If user is logged in, redirect to dashboard
       router.push('/dashboard')
-    } else {
-      setIsCheckingAuth(false)
     }
   }, [router])
-
-  // Show loading state while checking authentication
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-brand-50 to-brand-100">
